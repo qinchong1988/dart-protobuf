@@ -226,6 +226,8 @@ void _mergeFromProto3Json(
           int result;
           if (value is int) {
             result = value;
+          } else if (value is double) {
+            result = value.toInt();
           } else if (value is String) {
             result = _tryParse32BitProto3(value, context);
           } else {
@@ -239,6 +241,8 @@ void _mergeFromProto3Json(
           int result;
           if (value is int) {
             result = value;
+          } else if (value is double) {
+            result = value.toInt();
           } else if (value is String) {
             result = _tryParse32BitProto3(value, context);
           } else {
@@ -251,6 +255,8 @@ void _mergeFromProto3Json(
           Int64 result;
           if (value is int) {
             result = Int64(value);
+          } else if (value is double) {
+            result = Int64(value.toInt());
           } else if (value is String) {
             result = _tryParse64BitProto3(json, value, context);
           } else {
@@ -263,6 +269,7 @@ void _mergeFromProto3Json(
         case PbFieldType._FIXED64_BIT:
         case PbFieldType._SFIXED64_BIT:
           if (value is int) return Int64(value);
+          if (value is double) return Int64(value.toInt());
           if (value is String) {
             Int64 result;
             try {
