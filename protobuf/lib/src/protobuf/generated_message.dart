@@ -256,9 +256,20 @@ abstract class GeneratedMessage {
   ///
   /// Unknown field data, data for which there is no metadata for the associated
   /// field, will not be included.
-  Object? toProto3Json(
-          {TypeRegistry typeRegistry = const TypeRegistry.empty()}) =>
-      _writeToProto3Json(_fieldSet, typeRegistry);
+  ///
+  /// [ignoreEmptyValue] 不会忽略空字段，会返回对应的空值
+  /// [useFieldProtoName] 使用proto文件中定义的原始字段名称，防止下划线变成驼峰
+  Object? toProto3Json({
+    TypeRegistry typeRegistry = const TypeRegistry.empty(),
+    bool ignoreEmptyValue = false,
+    bool useFieldProtoName = true,
+  }) =>
+      _writeToProto3Json(
+        _fieldSet,
+        typeRegistry,
+        ignoreEmptyValue: ignoreEmptyValue,
+        useFieldProtoName: useFieldProtoName,
+      );
 
   /// Merges field values from [json], a JSON object using proto3 encoding.
   ///
@@ -282,18 +293,23 @@ abstract class GeneratedMessage {
   ///
   /// The [typeRegistry] is used for decoding `Any` messages.
   ///
+  /// [typeConstraint] 是否强类型约束，比如 String int 互相转换，true, 类型不同throw FormatException
+  ///
   /// Throws [FormatException] if an `Any` message type is not in
   /// [typeRegistry].
   ///
   /// Throws [FormatException] if the JSON not formatted correctly (a String
   /// where a number was expected etc.).
-  void mergeFromProto3Json(Object? json,
-          {TypeRegistry typeRegistry = const TypeRegistry.empty(),
-          bool ignoreUnknownFields = false,
-          bool supportNamesWithUnderscores = true,
-          bool permissiveEnums = false}) =>
-      _mergeFromProto3Json(json, _fieldSet, typeRegistry, ignoreUnknownFields,
-          supportNamesWithUnderscores, permissiveEnums);
+  void mergeFromProto3Json(
+    Object? json, {
+    TypeRegistry typeRegistry = const TypeRegistry.empty(),
+    bool ignoreUnknownFields = false,
+    bool supportNamesWithUnderscores = true,
+    bool permissiveEnums = false,
+    bool typeConstraint = false,
+  }) =>
+      _mergeFromProto3Json(json, _fieldSet, typeRegistry, ignoreUnknownFields, supportNamesWithUnderscores,
+          permissiveEnums, typeConstraint);
 
   /// Merges field values from [data], a JSON object, encoded as described by
   /// [GeneratedMessage.writeToJson].

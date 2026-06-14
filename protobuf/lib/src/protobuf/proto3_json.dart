@@ -4,7 +4,10 @@
 
 part of '../../protobuf.dart';
 
-Object? _writeToProto3Json(_FieldSet fs, TypeRegistry typeRegistry) {
+///[ignoreEmptyValue] 不会忽略空字段，会返回对应的空值
+///[useFieldProtoName] 使用proto文件中定义的原始字段名称，防止下划线变成驼峰
+Object? _writeToProto3Json(_FieldSet fs, TypeRegistry typeRegistry,
+    {bool ignoreEmptyValue = false, bool useFieldProtoName = true}) {
   String? convertToMapKey(dynamic key, int keyType) {
     final baseType = PbFieldType._baseType(keyType);
 
@@ -37,7 +40,11 @@ Object? _writeToProto3Json(_FieldSet fs, TypeRegistry typeRegistry) {
 
     if (_isGroupOrMessage(fieldType!)) {
       return _writeToProto3Json(
-          (fieldValue as GeneratedMessage)._fieldSet, typeRegistry);
+        (fieldValue as GeneratedMessage)._fieldSet,
+        typeRegistry,
+        ignoreEmptyValue: ignoreEmptyValue,
+        useFieldProtoName: useFieldProtoName,
+      );
     } else if (_isEnum(fieldType)) {
       return (fieldValue as ProtobufEnum).name;
     } else {
@@ -87,10 +94,26 @@ Object? _writeToProto3Json(_FieldSet fs, TypeRegistry typeRegistry) {
     return meta.toProto3Json!(fs._message!, typeRegistry);
   }
 
+  String getFiledName(FieldInfo fieldInfo) {
+    if (useFieldProtoName) {
+      return fieldInfo.protoName;
+    }
+    return fieldInfo.name;
+  }
+
   final result = <String, dynamic>{};
   for (final fieldInfo in fs._infosSortedByTag) {
     final value = fs._values[fieldInfo.index!];
     if (value == null || (value is List && value.isEmpty)) {
+      if (!ignoreEmptyValue) {
+        if (fieldInfo.isMapField) {
+          result[getFiledName(fieldInfo)] = null;
+        } else if (fieldInfo.isRepeated) {
+          result[getFiledName(fieldInfo)] = [];
+        } else {
+          result[getFiledName(fieldInfo)] = _emptyValueToProto3Json(fieldInfo);
+        }
+      }
       continue; // It's missing, repeated, or an empty byte array.
     }
     dynamic jsonValue;
@@ -107,7 +130,7 @@ Object? _writeToProto3Json(_FieldSet fs, TypeRegistry typeRegistry) {
     } else {
       jsonValue = valueToProto3Json(value, fieldInfo.type);
     }
-    result[fieldInfo.name] = jsonValue;
+    result[getFiledName(fieldInfo)] = jsonValue;
   }
   // Extensions and unknown fields are not encoded by proto3 JSON.
   return result;
@@ -158,7 +181,9 @@ void _mergeFromProto3Json(
     TypeRegistry typeRegistry,
     bool ignoreUnknownFields,
     bool supportNamesWithUnderscores,
-    bool permissiveEnums) {
+    bool permissiveEnums,
+    bool typeConstraint,
+) {
   fieldSet._ensureWritable();
   final context = JsonParsingContext(
       ignoreUnknownFields, supportNamesWithUnderscores, permissiveEnums);
@@ -226,7 +251,7 @@ void _mergeFromProto3Json(
           int result;
           if (value is int) {
             result = value;
-          } else if (value is double) {
+          } else if (!typeConstraint && value is double) {
             result = value.toInt();
           } else if (value is String) {
             result = _tryParse32BitProto3(value, context);
@@ -241,7 +266,7 @@ void _mergeFromProto3Json(
           int result;
           if (value is int) {
             result = value;
-          } else if (value is double) {
+          } else if (!typeConstraint && value is double) {
             result = value.toInt();
           } else if (value is String) {
             result = _tryParse32BitProto3(value, context);
@@ -255,7 +280,7 @@ void _mergeFromProto3Json(
           Int64 result;
           if (value is int) {
             result = Int64(value);
-          } else if (value is double) {
+          } else if (!typeConstraint && value is double) {
             result = Int64(value.toInt());
           } else if (value is String) {
             result = _tryParse64BitProto3(json, value, context);
@@ -269,7 +294,7 @@ void _mergeFromProto3Json(
         case PbFieldType._FIXED64_BIT:
         case PbFieldType._SFIXED64_BIT:
           if (value is int) return Int64(value);
-          if (value is double) return Int64(value.toInt());
+          if (!typeConstraint && value is double) return Int64(value.toInt());
           if (value is String) {
             Int64 result;
             try {
@@ -421,4 +446,44 @@ void _mergeFromProto3Json(
   }
 
   recursionHelper(json, fieldSet);
+}
+
+Object? _emptyValueToProto3Json(FieldInfo fieldInfo) {
+  final int fieldType = fieldInfo.type;
+  if (_isEnum(fieldType) && fieldInfo.enumValues?.isNotEmpty == true) {
+    return fieldInfo.enumValues?.first.name ?? '';
+  } else {
+    var baseType = PbFieldType._baseType(fieldType);
+    switch (baseType) {
+      case PbFieldType._BOOL_BIT:
+        return false;
+      case PbFieldType._STRING_BIT:
+        return '';
+      case PbFieldType._INT32_BIT:
+      case PbFieldType._SINT32_BIT:
+      case PbFieldType._UINT32_BIT:
+      case PbFieldType._FIXED32_BIT:
+      case PbFieldType._SFIXED32_BIT:
+        return 0;
+      case PbFieldType._INT64_BIT:
+      case PbFieldType._SINT64_BIT:
+      case PbFieldType._SFIXED64_BIT:
+      case PbFieldType._FIXED64_BIT:
+        return 0;
+      case PbFieldType._FLOAT_BIT:
+      case PbFieldType._DOUBLE_BIT:
+        return 0.0;
+      case PbFieldType._UINT64_BIT:
+        return 0;
+      case PbFieldType._BYTES_BIT:
+        return '';
+      case PbFieldType._MESSAGE_BIT:
+        return null;
+      case PbFieldType._MAP_BIT:
+        return null;
+      default:
+        throw StateError(
+            'Invariant violation: unexpected value type $fieldType,name ${fieldInfo.protoName}');
+    }
+  }
 }
