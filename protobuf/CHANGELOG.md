@@ -1,4 +1,117 @@
-## 4.0.0-dev
+## 6.0.0
+
+* New `GeneratedMessage` extension methods `toTextFormat` and `writeTextFormat`
+  added to convert the message into the [official protocol buffers text
+  format][text format]. ([#1080], [#125])
+
+* Add [well-known proto types][wkts] as libraries. This change is required for
+  protoc_plugin-25.0.0. ([#1081])
+
+* **Breaking:** Hide `PbList` and `PbMap` constructors. It is not possible to
+  construct these values correctly in user code, so the constructors are now
+  private. Existing uses of `PbList` can be replaced by `List` and `PbMap` can
+  be replaced by `Map`.
+
+  For immutable lists and maps, you can use `built_value`. ([#1072])
+  
+* Map fields now check key and value validity when adding elements. ([#1065],
+  [#1076])
+
+[text format]: https://protobuf.dev/reference/protobuf/textformat-spec/
+[#1080]: https://github.com/google/protobuf.dart/pull/1080
+[#125]: https://github.com/google/protobuf.dart/issues/125
+[wkts]: https://protobuf.dev/reference/protobuf/google.protobuf
+[#1081]: https://github.com/google/protobuf.dart/pull/1081
+[#1072]: https://github.com/google/protobuf.dart/pull/1072
+[#1065]: https://github.com/google/protobuf.dart/issues/1065
+[#1076]: https://github.com/google/protobuf.dart/pull/1076
+
+## 5.1.0
+
+* Update default size limit of `CodedBufferReader` from 67,108,864 bytes to
+  2,147,483,647 bytes, and default recursion limit from 64 to 100.
+
+  The new limits are consistent with the Java and C++ implementations. ([#1060])
+
+* Fix `GeneratedMessage.addExtension` returning non-frozen and
+  `GeneratedMessage.getExtension` allowing modifying an extension when the
+  message is frozen before initializing the extension field set. ([#1062])
+
+* Fix `GeneratedMessage.getExtension` returning differently typed lists when the
+  message extension field set is initialized and frozen and initialized but not
+  frozen. ([#1062])
+
+* Fix `PbList` methods `addAll`, `insertAll`, `replaceRange`, `setAll`,
+  `setRange` iterating the `Iterable` argument twice. ([#730], [#1070])
+
+* Fix `GeneratedMessage.==` throwing a type error when comparing `map` fields in
+  some cases. ([#1075], [#1077])
+
+  This bug was introduced with protobuf-5.0.0.
+
+[#1060]: https://github.com/google/protobuf.dart/pull/1060
+[#1062]: https://github.com/google/protobuf.dart/pull/1062
+[#730]: https://github.com/google/protobuf.dart/issues/730
+[#1070]: https://github.com/google/protobuf.dart/pull/1070
+[#1075]: https://github.com/google/protobuf.dart/issues/1075
+[#1077]: https://github.com/google/protobuf.dart/pull/1077
+
+## 5.0.0
+
+* Improve performance of `GeneratedMessage.deepCopy`. ([#742])
+* Fix unknown enum handling in `GeneratedMessage.mergeFromProto3Json` when
+  the `ignoreUnknownFields` optional argument is `true`. ([#853])
+* Add `BuilderInfo` methods to support protoc-plugin 23.0.0. ([#1047])
+* Generalize argument type of `PbList.from` from `List<T>` to `Iterable<T>`.
+  ([#1054])
+* Fix clearing oneof fields with `GeneratedMessage.clear`. ([#1057])
+* Fix unknown JSON handling when using `GeneratedMessage` methods
+  `mergeFromJson`, `mergeFromJsonMap`, `writeToJson`, `writeToJsonMap`.
+  ([#1058])
+
+[#742]: https://github.com/google/protobuf.dart/pull/742
+[#853]: https://github.com/google/protobuf.dart/pull/853
+[#1047]: https://github.com/google/protobuf.dart/pull/1047
+[#1054]: https://github.com/google/protobuf.dart/pull/1054
+[#1057]: https://github.com/google/protobuf.dart/pull/1057
+[#1058]: https://github.com/google/protobuf.dart/pull/1058
+
+## 4.2.0
+
+* Internal refactoring to split the package into libraries. This allows
+  conditionally importing different libraries and improving performance by
+  using different encoding/decoding libraries based on the target platform.
+  ([#1026])
+
+* Some of the private `PbFieldType` members are made public, to allow using
+  them in internal libraries. This type is for internal use only. ([#1027])
+
+* Improve performance of `GeneratedMessage` members: `writeToJsonMap`,
+  `writeToJson`, `mergeFromJson`, `mergeFromJsonMap`. ([#1028])
+
+* Remove `BuilderInfo.fromProto3Json` and `BuilderInfo.toProto3Json` as a part
+  of an internal refactoring.
+
+[#1026]: https://github.com/google/protobuf.dart/pull/1026
+[#1027]: https://github.com/google/protobuf.dart/pull/1027
+[#1028]: https://github.com/google/protobuf.dart/pull/1028
+
+## 4.1.1
+
+* Minimum SDK dependency bumped from 3.6.0 to 3.7.0. ([#1024])
+
+[#1024]: https://github.com/google/protobuf.dart/pull/1024
+
+## 4.1.0
+
+* Improve packed field decoding performance. ([#959], [#981])
+* Minimum SDK dependency bumped from 3.3.0 to 3.6.0. ([#1001])
+
+[#959]: https://github.com/google/protobuf.dart/pull/959
+[#981]: https://github.com/google/protobuf.dart/pull/981
+[#1001]: https://github.com/google/protobuf.dart/pull/1001
+
+## 4.0.0
 
 * **Breaking:** The following types and members are now removed:
 
@@ -34,11 +147,14 @@
 
   ([#49], [#918])
 
+* Minimum SDK dependency bumped from 2.19.0 to 3.3.0. (#953)
+
 [#738]: https://github.com/google/protobuf.dart/issues/738
 [#896]: https://github.com/google/protobuf.dart/issues/896
 [#902]: https://github.com/google/protobuf.dart/issues/902
 [#49]: https://github.com/google/protobuf.dart/issues/49
 [#918]: https://github.com/google/protobuf.dart/pulls/918
+[#953]: https://github.com/google/protobuf.dart/pull/953
 
 ## 3.1.0
 

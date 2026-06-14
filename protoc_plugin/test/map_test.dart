@@ -5,8 +5,9 @@
 import 'package:test/test.dart'
     show expect, isA, predicate, same, test, throwsA, throwsArgumentError;
 
-import '../out/protos/map_api.pb.dart' as pb;
-import '../out/protos/map_api2.pb.dart' as pb2;
+import 'gen/map_api.pb.dart' as pb;
+import 'gen/map_api2.pb.dart' as pb2;
+import 'gen/map_field.pb.dart';
 
 void main() {
   test("message doesn't implement Map when turned off", () {
@@ -49,11 +50,18 @@ void main() {
 
   test('operator []= throws exception for invalid key', () {
     final rec = pb.Rec();
-    expect(() {
-      rec['unknown'] = 123;
-    },
-        throwsA(isA<ArgumentError>().having((p0) => p0.message, 'message',
-            "field 'unknown' not found in protobuf_unittest.Rec")));
+    expect(
+      () {
+        rec['unknown'] = 123;
+      },
+      throwsA(
+        isA<ArgumentError>().having(
+          (p0) => p0.message,
+          'message',
+          "field 'unknown' not found in protobuf_unittest.Rec",
+        ),
+      ),
+    );
   });
 
   test('operator []= throws exception for repeated field', () {
@@ -106,11 +114,18 @@ void main() {
   test("remove isn't supported", () {
     final rec = pb.Rec();
     rec.str = 'hello';
-    expect(() {
-      rec.remove('str');
-    },
-        throwsA(isA<UnsupportedError>().having((p0) => p0.message, 'message',
-            'remove() not supported by protobuf_unittest.Rec')));
+    expect(
+      () {
+        rec.remove('str');
+      },
+      throwsA(
+        isA<UnsupportedError>().having(
+          (p0) => p0.message,
+          'message',
+          'remove() not supported by protobuf_unittest.Rec',
+        ),
+      ),
+    );
     expect(rec.str, 'hello');
   });
 
@@ -139,8 +154,27 @@ void main() {
     final rec = pb.Rec();
     expect(() {
       rec.addAll({
-        'nums': [1, 2, 3]
+        'nums': [1, 2, 3],
       });
     }, throwsArgumentError);
   });
+
+  test(
+    "Map equality check handles missing keys without type errors, bug #1075",
+    () {
+      final message1 = TestMap();
+      final message2 = TestMap();
+      expect(message1, message2);
+
+      message1.int32ToInt32Field[1] = 2;
+      expect(message1 == message2, false);
+
+      message2.int32ToInt32Field[3] = 4;
+      expect(message1 == message2, false);
+
+      message1.int32ToInt32Field[3] = 4;
+      message2.int32ToInt32Field[1] = 2;
+      expect(message1, message2);
+    },
+  );
 }

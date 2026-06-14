@@ -10,9 +10,7 @@ import 'indenting_writer.dart';
 
 /// Finds [name] in the exported mixins.
 PbMixin? findMixin(String name) {
-  const exportedMixins = {
-    'PbMapMixin': _pbMapMixin,
-  };
+  const exportedMixins = {'PbMapMixin': _pbMapMixin};
   return exportedMixins[name];
 }
 
@@ -40,9 +38,11 @@ class PbMixin {
   /// Typically used for static helpers since you cannot mix in static members.
   final List<String>? injectedHelpers;
 
-  /// Whether the mixin should have static methods for converting to and from
-  /// proto3 Json.
-  final bool hasProto3JsonHelpers;
+  /// The well known type name.
+  ///
+  /// Values should match enumerations in the `WellKnownType` enum from
+  /// `package:protobuf`.
+  final String? wellKnownType;
 
   const PbMixin(
     this.name, {
@@ -50,7 +50,7 @@ class PbMixin {
     this.parent,
     this.reservedNames,
     this.injectedHelpers,
-    this.hasProto3JsonHelpers = false,
+    this.wellKnownType,
   });
 
   /// Returns the mixin and its ancestors, in the order they should be applied.
@@ -81,9 +81,11 @@ class PbMixin {
   }
 }
 
-const _pbMapMixin = PbMixin('PbMapMixin',
-    importFrom: 'package:protobuf/src/protobuf/mixins/map_mixin.dart',
-    parent: _mapMixin);
+const _pbMapMixin = PbMixin(
+  'PbMapMixin',
+  importFrom: 'package:protobuf/src/protobuf/mixins/map_mixin.dart',
+  parent: _mapMixin,
+);
 
 const List<String> _reservedNamesForMap = [
   '[]',
@@ -109,5 +111,8 @@ const List<String> _reservedNamesForMap = [
   'values',
 ];
 
-const _mapMixin = PbMixin('MapMixin',
-    importFrom: 'dart:collection', reservedNames: _reservedNamesForMap);
+const _mapMixin = PbMixin(
+  'MapMixin',
+  importFrom: 'dart:collection',
+  reservedNames: _reservedNamesForMap,
+);

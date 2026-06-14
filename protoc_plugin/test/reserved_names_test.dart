@@ -2,6 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+@TestOn('vm')
+library;
+
 import 'dart:collection' show MapMixin;
 import 'dart:mirrors';
 
@@ -14,28 +17,34 @@ import 'package:protobuf/src/protobuf/mixins/map_mixin.dart' show PbMapMixin;
 import 'package:protoc_plugin/mixins.dart' show findMixin;
 import 'package:test/test.dart';
 
-import 'mirror_util.dart' show findMemberNames;
+import 'src/mirror_util.dart' show findMemberNames;
 
 void main() {
   test('GeneratedMessage reserved names are up to date', () {
     final actual = Set<String>.from(GeneratedMessage_reservedNames);
-    final expected =
-        findMemberNames('package:protobuf/protobuf.dart', #GeneratedMessage);
+    final expected = findMemberNames(
+      'package:protobuf/src/protobuf/internal.dart',
+      #GeneratedMessage,
+    );
 
     expect(actual.toList()..sort(), equals(expected.toList()..sort()));
   });
 
   test('ProtobufEnum reserved names are up to date', () {
     final actual = Set<String>.from(ProtobufEnum_reservedNames);
-    final expected =
-        findMemberNames('package:protobuf/protobuf.dart', #ProtobufEnum);
+    final expected = findMemberNames(
+      'package:protobuf/src/protobuf/internal.dart',
+      #ProtobufEnum,
+    );
 
     expect(actual.toList()..sort(), equals(expected.toList()..sort()));
   });
 
   test("ReadonlyMessageMixin doesn't add any reserved names", () {
     final mixinNames = findMemberNames(
-        'package:protobuf/protobuf.dart', #ReadonlyMessageMixin);
+      'package:protobuf/src/protobuf/internal.dart',
+      #ReadonlyMessageMixin,
+    );
     final reservedNames = Set<String>.from(GeneratedMessage_reservedNames);
     for (final name in mixinNames) {
       if (name == 'ReadonlyMessageMixin' || name == 'unknownFields') continue;
@@ -49,11 +58,14 @@ void main() {
     final meta = findMixin('PbMapMixin')!;
     final actual = Set<String>.from(meta.findReservedNames());
 
-    final expected = findMemberNames(meta.importFrom, #PbMapMixin)
-      ..addAll(findMemberNames('dart:collection', #MapMixin))
-      ..removeAll(GeneratedMessage_reservedNames);
+    final expected =
+        findMemberNames(meta.importFrom, #PbMapMixin)
+          ..addAll(findMemberNames('dart:collection', #MapMixin))
+          ..removeAll(GeneratedMessage_reservedNames);
 
     expect(
-        actual.toList()..sort(), containsAllInOrder(expected.toList()..sort()));
+      actual.toList()..sort(),
+      containsAllInOrder(expected.toList()..sort()),
+    );
   });
 }

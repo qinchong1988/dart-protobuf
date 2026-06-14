@@ -2,21 +2,23 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+@TestOn('vm')
+library;
+
 import 'dart:io';
 
 import 'package:test/test.dart';
 
-import 'golden_file.dart';
+import 'src/golden_file.dart';
 
 void main() {
   test('Deprecated annotation generation for messages', () {
-    final actual = File('out/protos/deprecations.pb.dart').readAsStringSync();
-    expectMatchesGoldenFile(actual, 'test/goldens/deprecations');
+    final actual = File('test/gen/deprecations.pb.dart').readAsStringSync();
+    expectGolden(actual, 'deprecations.pb.dart');
   });
 
   test('Deprecated annotation generation for enums', () {
-    final actual = File('out/protos/constructor_args/deprecations.pbenum.dart')
-        .readAsStringSync();
-    expectMatchesGoldenFile(actual, 'test/goldens/deprecations.pbenum');
+    final actual = File('test/gen/deprecations.pbenum.dart').readAsStringSync();
+    expectGolden(actual, 'deprecations.pbenum.dart');
   });
 }

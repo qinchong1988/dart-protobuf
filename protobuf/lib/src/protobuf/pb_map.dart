@@ -2,7 +2,30 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of '../../protobuf.dart';
+import 'dart:collection' show MapBase;
+
+import 'internal.dart';
+import 'utils.dart';
+
+const mapKeyFieldNumber = 1;
+const mapValueFieldNumber = 2;
+
+@pragma('dart2js:tryInline')
+@pragma('vm:prefer-inline')
+@pragma('wasm:prefer-inline')
+PbMap<K, V> newPbMap<K, V>(int keyFieldType, int valueFieldType) =>
+    PbMap<K, V>._(
+      keyFieldType,
+      valueFieldType,
+      getCheckFunction(keyFieldType),
+      getCheckFunction(valueFieldType),
+    );
+
+@pragma('dart2js:tryInline')
+@pragma('vm:prefer-inline')
+@pragma('wasm:prefer-inline')
+PbMap<K, V> newUnmodifiablePbMap<K, V>(int keyFieldType, int valueFieldType) =>
+    PbMap<K, V>._unmodifiable(keyFieldType, valueFieldType);
 
 /// A [MapBase] implementation used for protobuf `map` fields.
 class PbMap<K, V> extends MapBase<K, V> {
@@ -18,9 +41,6 @@ class PbMap<K, V> extends MapBase<K, V> {
   /// The `int` value is interpreted the same way as [FieldInfo.type].
   final int valueFieldType;
 
-  static const int _keyFieldNumber = 1;
-  static const int _valueFieldNumber = 2;
-
   /// The actual list storing the elements.
   ///
   /// Note: We want only one [Map] implementation class to be stored here to
@@ -31,11 +51,21 @@ class PbMap<K, V> extends MapBase<K, V> {
 
   bool _isReadOnly = false;
 
-  PbMap(this.keyFieldType, this.valueFieldType) : _wrappedMap = <K, V>{};
+  final CheckFunc<K>? _checkKey;
+  final CheckFunc<V>? _checkValue;
 
-  PbMap.unmodifiable(this.keyFieldType, this.valueFieldType)
-      : _wrappedMap = <K, V>{},
-        _isReadOnly = true;
+  PbMap._(
+    this.keyFieldType,
+    this.valueFieldType,
+    this._checkKey,
+    this._checkValue,
+  ) : _wrappedMap = <K, V>{};
+
+  PbMap._unmodifiable(this.keyFieldType, this.valueFieldType)
+    : _wrappedMap = <K, V>{},
+      _isReadOnly = true,
+      _checkKey = null,
+      _checkValue = null;
 
   @override
   V? operator [](Object? key) => _wrappedMap[key];
@@ -45,13 +75,17 @@ class PbMap<K, V> extends MapBase<K, V> {
     if (_isReadOnly) {
       throw UnsupportedError('Attempted to change a read-only map field');
     }
-    ArgumentError.checkNotNull(key, 'key');
-    ArgumentError.checkNotNull(value, 'value');
+    if (_checkKey != null) {
+      _checkKey(key);
+    }
+    if (_checkValue != null) {
+      _checkValue(value);
+    }
     _wrappedMap[key] = value;
   }
 
-  /// A [PbMap] is equal to another [PbMap] with equal key/value
-  /// pairs in any order.
+  /// A [PbMap] is equal to another [PbMap] with equal key/value pairs in any
+  /// order.
   @override
   bool operator ==(Object other) {
     if (identical(other, this)) {
@@ -71,12 +105,14 @@ class PbMap<K, V> extends MapBase<K, V> {
     return true;
   }
 
-  /// A [PbMap] is equal to another [PbMap] with equal key/value
-  /// pairs in any order. Then, the `hashCode` is guaranteed to be the same.
+  /// A [PbMap] is equal to another [PbMap] with equal key/value pairs in any
+  /// order. Then, the `hashCode` is guaranteed to be the same.
   @override
   int get hashCode {
-    return _wrappedMap.entries
-        .fold(0, (h, entry) => h ^ _HashUtils._hash2(entry.key, entry.value));
+    return _wrappedMap.entries.fold(
+      0,
+      (h, entry) => h ^ HashUtils.hash2(entry.key, entry.value),
+    );
   }
 
   @override
@@ -98,29 +134,40 @@ class PbMap<K, V> extends MapBase<K, V> {
     return _wrappedMap.remove(key);
   }
 
-  void _mergeEntry(BuilderInfo mapEntryMeta, CodedBufferReader input,
-      ExtensionRegistry registry) {
-    final length = input.readInt32();
-    final oldLimit = input._currentLimit;
-    input._currentLimit = input._bufferPos + length;
-    final entryFieldSet = _FieldSet(null, mapEntryMeta);
-    _mergeFromCodedBufferReader(mapEntryMeta, entryFieldSet, input, registry);
-    input.checkLastTagWas(0);
-    input._currentLimit = oldLimit;
-    final key =
-        entryFieldSet._values[0] ?? mapEntryMeta.byIndex[0].makeDefault!();
-    final value =
-        entryFieldSet._values[1] ?? mapEntryMeta.byIndex[1].makeDefault!();
-    _wrappedMap[key] = value;
-  }
-
   PbMap freeze() {
     _isReadOnly = true;
-    if (_isGroupOrMessage(valueFieldType)) {
+    if (PbFieldType.isGroupOrMessage(valueFieldType)) {
       for (final subMessage in values as Iterable<GeneratedMessage>) {
         subMessage.freeze();
       }
     }
     return this;
   }
+
+  PbMap<K, V> _deepCopy() {
+    final newMap = PbMap<K, V>._(
+      keyFieldType,
+      valueFieldType,
+      _checkKey,
+      _checkValue,
+    );
+    final wrappedMap = _wrappedMap;
+    final newWrappedMap = newMap._wrappedMap;
+    if (PbFieldType.isGroupOrMessage(valueFieldType)) {
+      for (final entry in wrappedMap.entries) {
+        newWrappedMap[entry.key] =
+            (entry.value as GeneratedMessage).deepCopy() as V;
+      }
+    } else {
+      newWrappedMap.addAll(wrappedMap);
+    }
+    return newMap;
+  }
+}
+
+extension PbMapInternalExtension<K, V> on PbMap<K, V> {
+  @pragma('dart2js:tryInline')
+  @pragma('vm:prefer-inline')
+  @pragma('wasm:prefer-inline')
+  PbMap<K, V> deepCopy() => _deepCopy();
 }

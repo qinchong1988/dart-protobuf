@@ -1,3 +1,7 @@
+// Copyright (c) 2018, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:convert';
 
 import 'package:protobuf/protobuf.dart';
@@ -7,9 +11,11 @@ import 'indenting_writer.dart';
 import 'mixins.dart';
 import 'names.dart';
 import 'src/code_generator.dart';
-import 'src/generated/dart_options.pb.dart';
-import 'src/generated/descriptor.pb.dart';
-import 'src/generated/plugin.pb.dart';
+import 'src/gen/dart_options.pb.dart';
+import 'src/gen/google/api/client.pb.dart';
+import 'src/gen/google/protobuf/compiler/plugin.pb.dart';
+import 'src/gen/google/protobuf/descriptor.pb.dart';
+import 'src/gen/google/protobuf/dart_edition_defaults.pb.dart';
 import 'src/linker.dart';
 import 'src/options.dart';
 import 'src/output_config.dart';
@@ -25,6 +31,16 @@ part 'src/extension_generator.dart';
 part 'src/file_generator.dart';
 part 'src/grpc_generator.dart';
 part 'src/message_generator.dart';
+part 'src/paths.dart';
 part 'src/protobuf_field.dart';
 part 'src/service_generator.dart';
 part 'src/well_known_types.dart';
+
+final FeatureSetDefaults pluginFeatureSetDefaults =
+    FeatureSetDefaults.fromBuffer(
+      base64Decode(ProtobufInternalDartEditionDefaults),
+    );
+
+const Edition pluginMinSupportedEdition = Edition.EDITION_PROTO2;
+
+const Edition pluginMaxSupportedEdition = Edition.EDITION_2024;

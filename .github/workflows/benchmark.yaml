@@ -1,0 +1,40 @@
+name: benchmarks
+permissions: read-all
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  schedule:
+    - cron: "0 0 * * 0" # weekly
+
+defaults:
+  run:
+    working-directory: benchmarks
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk: [dev]
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260
+        with:
+          sdk: ${{matrix.sdk}}
+
+      - run: ../tool/setup.sh
+
+      - run: dart pub get
+
+      - run: ./tool/compile_protos.sh
+
+      - run: dart analyze --fatal-infos
+
+      - run: dart format --output=none --set-exit-if-changed .
+        if: ${{ matrix.sdk == 'dev' }}
+
+      - run: dart tool/compile_benchmarks.dart

@@ -9,36 +9,55 @@ import 'package:protobuf_benchmarks/generated/google_message1_proto3.pb.dart'
     as p3;
 import 'package:protobuf_benchmarks/generated/google_message2.pb.dart';
 import 'package:protobuf_benchmarks/readfile.dart';
+import 'package:protobuf/protobuf.dart';
+
+GeneratedMessage? sink1;
+GeneratedMessage? sink2;
+GeneratedMessage? sink3;
 
 class Benchmark extends BenchmarkBase {
   final String _message1Proto2JsonString;
   final String _message1Proto3JsonString;
   final String _message2JsonString;
 
-  Benchmark(super.name, List<int> message1Proto2Input,
-      List<int> message1Proto3Input, List<int> message2Input)
-      : _message1Proto2JsonString =
-            p2.GoogleMessage1.fromBuffer(message1Proto2Input).writeToJson(),
-        _message1Proto3JsonString =
-            p3.GoogleMessage1.fromBuffer(message1Proto3Input).writeToJson(),
-        _message2JsonString =
-            GoogleMessage2.fromBuffer(message2Input).writeToJson();
+  Benchmark(
+    super.name,
+    List<int> message1Proto2Input,
+    List<int> message1Proto3Input,
+    List<int> message2Input,
+  ) : _message1Proto2JsonString =
+          p2.GoogleMessage1.fromBuffer(message1Proto2Input).writeToJson(),
+      _message1Proto3JsonString =
+          p3.GoogleMessage1.fromBuffer(message1Proto3Input).writeToJson(),
+      _message2JsonString =
+          GoogleMessage2.fromBuffer(message2Input).writeToJson();
 
   @override
   void run() {
-    p2.GoogleMessage1.fromJson(_message1Proto2JsonString);
-    p3.GoogleMessage1.fromJson(_message1Proto3JsonString);
-    GoogleMessage2.fromJson(_message2JsonString);
+    sink1 = p2.GoogleMessage1.fromJson(_message1Proto2JsonString);
+    sink2 = p3.GoogleMessage1.fromJson(_message1Proto3JsonString);
+    sink3 = GoogleMessage2.fromJson(_message2JsonString);
   }
 }
 
 void main() {
-  final List<int> message1Proto2Input =
-      readfile('datasets/google_message1_proto2.pb');
-  final List<int> message1Proto3Input =
-      readfile('datasets/google_message1_proto3.pb');
+  final List<int> message1Proto2Input = readfile(
+    'datasets/google_message1_proto2.pb',
+  );
+  final List<int> message1Proto3Input = readfile(
+    'datasets/google_message1_proto3.pb',
+  );
   final List<int> message2Input = readfile('datasets/google_message2.pb');
-  Benchmark('from_json_string', message1Proto2Input, message1Proto3Input,
-          message2Input)
-      .report();
+  Benchmark(
+    'from_json_string',
+    message1Proto2Input,
+    message1Proto3Input,
+    message2Input,
+  ).report();
+
+  if (int.parse('1') == 0) {
+    print(sink1);
+    print(sink2);
+    print(sink3);
+  }
 }

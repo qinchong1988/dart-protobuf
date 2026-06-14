@@ -4,32 +4,32 @@
 
 import 'package:protobuf/protobuf.dart';
 import 'package:test/test.dart';
+import 'package:fixnum/fixnum.dart';
 
-import '../out/protos/constructor_args/google/protobuf/unittest.pb.dart'
-    as constructor_args_unittest;
-import '../out/protos/constructor_args/google/protobuf/unittest_import.pb.dart'
-    as constructor_args_unittest_import;
-import '../out/protos/duplicate_names_import.pb.dart';
-import '../out/protos/google/protobuf/unittest.pb.dart';
-import '../out/protos/google/protobuf/unittest_import.pb.dart';
-import '../out/protos/google/protobuf/unittest_optimize_for.pb.dart';
-import '../out/protos/multiple_files_test.pb.dart';
-import '../out/protos/package1.pb.dart' as p1;
-import '../out/protos/package2.pb.dart' as p2;
-import '../out/protos/package3.pb.dart' as p3;
-import '../out/protos/reserved_names.pb.dart';
-import '../out/protos/reserved_names_extension.pb.dart';
-import '../out/protos/reserved_names_message.pb.dart';
-import 'test_util.dart';
+import 'gen/duplicate_names_import.pb.dart';
+import 'gen/enums.pb.dart';
+import 'gen/google/protobuf/unittest.pb.dart';
+import 'gen/google/protobuf/unittest_import.pb.dart';
+import 'gen/google/protobuf/unittest_optimize_for.pb.dart';
+import 'gen/multiple_files_test.pb.dart';
+import 'gen/package1.pb.dart' as p1;
+import 'gen/package2.pb.dart' as p2;
+import 'gen/package3.pb.dart' as p3;
+import 'gen/reserved_names.pb.dart';
+import 'gen/reserved_names_extension.pb.dart';
+import 'gen/reserved_names_message.pb.dart';
+import 'src/test_util.dart';
 
 void main() {
-  final throwsInvalidProtocolBufferException =
-      throwsA(TypeMatcher<InvalidProtocolBufferException>());
+  final throwsInvalidProtocolBufferException = throwsA(
+    TypeMatcher<InvalidProtocolBufferException>(),
+  );
   test('testProtosShareRepeatedArraysIfDidntChange', () {
-    final value1 = TestAllTypes()
-      ..repeatedInt32.add(100)
-      ..repeatedImportEnum.add(ImportEnum.IMPORT_BAR)
-      ..repeatedForeignMessage.add(ForeignMessage());
+    final value1 =
+        TestAllTypes()
+          ..repeatedInt32.add(100)
+          ..repeatedImportEnum.add(ImportEnum.IMPORT_BAR)
+          ..repeatedForeignMessage.add(ForeignMessage());
 
     final value2 = value1.deepCopy();
 
@@ -40,8 +40,10 @@ void main() {
 
   test('testDefaultMessageIsReadOnly', () {
     var message = TestAllTypes();
-    expect(message.optionalNestedMessage,
-        same(TestAllTypes_NestedMessage.getDefault()));
+    expect(
+      message.optionalNestedMessage,
+      same(TestAllTypes_NestedMessage.getDefault()),
+    );
     expect(() {
       message.optionalNestedMessage.bb = 123;
     }, throwsUnsupportedError);
@@ -74,10 +76,11 @@ void main() {
   });
 
   test('testRepeatedAppend', () {
-    final message = TestAllTypes()
-      ..repeatedInt32.addAll([1, 2, 3, 4])
-      ..repeatedForeignEnum.addAll([ForeignEnum.FOREIGN_BAZ])
-      ..repeatedForeignMessage.addAll([ForeignMessage()..c = 12]);
+    final message =
+        TestAllTypes()
+          ..repeatedInt32.addAll([1, 2, 3, 4])
+          ..repeatedForeignEnum.addAll([ForeignEnum.FOREIGN_BAZ])
+          ..repeatedForeignMessage.addAll([ForeignMessage()..c = 12]);
 
     expect(message.repeatedInt32, [1, 2, 3, 4]);
     expect(message.repeatedForeignEnum, [ForeignEnum.FOREIGN_BAZ]);
@@ -86,21 +89,21 @@ void main() {
   });
 
   test('testSettingForeignMessage', () {
-    final message = TestAllTypes()
-      ..optionalForeignMessage = (ForeignMessage()..c = 123);
+    final message =
+        TestAllTypes()..optionalForeignMessage = (ForeignMessage()..c = 123);
 
-    final expectedMessage = TestAllTypes()
-      ..optionalForeignMessage = (ForeignMessage()..c = 123);
+    final expectedMessage =
+        TestAllTypes()..optionalForeignMessage = (ForeignMessage()..c = 123);
 
     expect(message, expectedMessage);
   });
 
   test('testSettingRepeatedForeignMessage', () {
-    final message = TestAllTypes()
-      ..repeatedForeignMessage.add(ForeignMessage()..c = 456);
+    final message =
+        TestAllTypes()..repeatedForeignMessage.add(ForeignMessage()..c = 456);
 
-    final expectedMessage = TestAllTypes()
-      ..repeatedForeignMessage.add(ForeignMessage()..c = 456);
+    final expectedMessage =
+        TestAllTypes()..repeatedForeignMessage.add(ForeignMessage()..c = 456);
 
     expect(message, expectedMessage);
   });
@@ -113,13 +116,15 @@ void main() {
     expect(message.utf8String, '\u1234');
     expect(message.infDouble, same(double.infinity));
     expect(message.negInfDouble, same(double.negativeInfinity));
-    expect(message.nanDouble, same(double.nan));
+    expect(message.nanDouble.isNaN, isTrue);
     expect(message.infFloat, same(double.infinity));
     expect(message.negInfFloat, same(double.negativeInfinity));
-    expect(message.nanFloat, same(double.nan));
+    expect(message.nanFloat.isNaN, isTrue);
     expect(message.cppTrigraph, '? ? ?? ?? ??? ??/ ??-');
-    expect(message.smallInt64.toRadixString(16).toUpperCase(),
-        '-7FFFFFFFFFFFFFFF');
+    expect(
+      message.smallInt64.toRadixString(16).toUpperCase(),
+      '-7FFFFFFFFFFFFFFF',
+    );
   });
 
   test('testClear', () {
@@ -157,25 +162,28 @@ void main() {
   });
 
   test('testParsePackedToUnpacked', () {
-    final message =
-        TestUnpackedTypes.fromBuffer(getPackedSet().writeToBuffer());
+    final message = TestUnpackedTypes.fromBuffer(
+      getPackedSet().writeToBuffer(),
+    );
     assertUnpackedFieldsSet(message);
   });
 
   test('testParseUnpackedToPacked', () {
-    final message =
-        TestPackedTypes.fromBuffer(getUnpackedSet().writeToBuffer());
+    final message = TestPackedTypes.fromBuffer(
+      getUnpackedSet().writeToBuffer(),
+    );
     assertPackedFieldsSet(message);
   });
 
   test('testIgnoreJavaMultipleFilesOption', () {
     // UNSUPPORTED getFile
     // We mostly just want to check that things compile.
-    final message = MessageWithNoOuter()
-      ..nested = (MessageWithNoOuter_NestedMessage()..i = 1)
-      ..foreign.add(TestAllTypes()..optionalInt32 = 1)
-      ..nestedEnum = MessageWithNoOuter_NestedEnum.BAZ
-      ..foreignEnum = EnumWithNoOuter.BAR;
+    final message =
+        MessageWithNoOuter()
+          ..nested = (MessageWithNoOuter_NestedMessage()..i = 1)
+          ..foreign.add(TestAllTypes()..optionalInt32 = 1)
+          ..nestedEnum = MessageWithNoOuter_NestedEnum.BAZ
+          ..foreignEnum = EnumWithNoOuter.BAR;
 
     expect(MessageWithNoOuter.fromBuffer(message.writeToBuffer()), message);
 
@@ -191,24 +199,26 @@ void main() {
     //        MultipleFilesTestProto.getDescriptor());
 
     expect(
-        TestAllExtensions()
-            .hasExtension(Multiple_files_test.extensionWithOuter),
-        isFalse);
+      TestAllExtensions().hasExtension(Multiple_files_test.extensionWithOuter),
+      isFalse,
+    );
   });
 
   test('testOptionalFieldWithRequiredSubfieldsOptimizedForSize', () {
     expect(TestOptionalOptimizedForSize().isInitialized(), isTrue);
 
     expect(
-        (TestOptionalOptimizedForSize()..o = TestRequiredOptimizedForSize())
-            .isInitialized(),
-        isFalse);
+      (TestOptionalOptimizedForSize()..o = TestRequiredOptimizedForSize())
+          .isInitialized(),
+      isFalse,
+    );
 
     expect(
-        (TestOptionalOptimizedForSize()
-              ..o = (TestRequiredOptimizedForSize()..x = 5))
-            .isInitialized(),
-        isTrue);
+      (TestOptionalOptimizedForSize()
+            ..o = (TestRequiredOptimizedForSize()..x = 5))
+          .isInitialized(),
+      isTrue,
+    );
   });
 
   test('testSetAllFieldsAndClone', () {
@@ -258,16 +268,27 @@ void main() {
       }
     }
 
-    final List<int> data64 = makeRecursiveMessage(64).writeToBuffer();
-    final List<int> data65 = makeRecursiveMessage(65).writeToBuffer();
+    // Message with exactly `DEFAULT_RECURSION_LIMIT` levels of nesting.
+    final List<int> dataShallow =
+        makeRecursiveMessage(
+          CodedBufferReader.DEFAULT_RECURSION_LIMIT,
+        ).writeToBuffer();
+    // Message with more than `DEFAULT_RECURSION_LIMIT` levels of nesting.
+    final List<int> dataDeep =
+        makeRecursiveMessage(
+          CodedBufferReader.DEFAULT_RECURSION_LIMIT + 1,
+        ).writeToBuffer();
 
-    assertMessageDepth(TestRecursiveMessage.fromBuffer(data64), 64);
+    assertMessageDepth(
+      TestRecursiveMessage.fromBuffer(dataShallow),
+      CodedBufferReader.DEFAULT_RECURSION_LIMIT,
+    );
 
     expect(() {
-      TestRecursiveMessage.fromBuffer(data65);
+      TestRecursiveMessage.fromBuffer(dataDeep);
     }, throwsInvalidProtocolBufferException);
 
-    final input = CodedBufferReader(data64, recursionLimit: 8);
+    final input = CodedBufferReader(dataShallow, recursionLimit: 8);
     expect(() {
       // Uncomfortable alternative to below...
       TestRecursiveMessage().mergeFromCodedBufferReader(input);
@@ -293,7 +314,8 @@ void main() {
     expect(TestAllTypes_NestedEnum.values, [
       TestAllTypes_NestedEnum.FOO,
       TestAllTypes_NestedEnum.BAR,
-      TestAllTypes_NestedEnum.BAZ
+      TestAllTypes_NestedEnum.BAZ,
+      TestAllTypes_NestedEnum.NEG,
     ]);
     expect(TestAllTypes_NestedEnum.FOO.value, 1);
     expect(TestAllTypes_NestedEnum.BAR.value, 2);
@@ -343,7 +365,7 @@ void main() {
       0x00, 0x00, 0x00, 0x00, 0xc0, 0x79, 0x40, 0xc8, 0x04, 0x00, 0xd2, 0x04,
       0x03, 0x34, 0x31, 0x35, 0xda, 0x04, 0x03, 0x34, 0x31, 0x36, 0x88, 0x05,
       0x01, 0x90, 0x05, 0x04, 0x98, 0x05, 0x07, 0xa2, 0x05, 0x03, 0x34, 0x32,
-      0x34, 0xaa, 0x05, 0x03, 0x34, 0x32, 0x35
+      0x34, 0xaa, 0x05, 0x03, 0x34, 0x32, 0x35,
     ];
     expect(getAllSet().writeToBuffer(), goldenMessage);
   });
@@ -362,18 +384,24 @@ void main() {
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xa2, 0x06, 0x08, 0x00, 0xc0, 0x18,
       0x44, 0x00, 0xc0, 0x31, 0x44, 0xaa, 0x06, 0x10, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x20, 0x83, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x86, 0x40,
-      0xb2, 0x06, 0x02, 0x01, 0x00, 0xba, 0x06, 0x02, 0x05, 0x06
+      0xb2, 0x06, 0x02, 0x01, 0x00, 0xba, 0x06, 0x02, 0x05, 0x06,
     ];
     expect(getPackedSet().writeToBuffer(), goldenPackedMessage);
   });
 
   test('testWriteMessageWithNegativeEnumValue', () {
     final message = SparseEnumMessage()..sparseEnum = TestSparseEnum.SPARSE_E;
-    expect(message.sparseEnum.value < 0, isTrue,
-        reason: 'enum.value should be -53452');
+    expect(
+      message.sparseEnum.value < 0,
+      isTrue,
+      reason: 'enum.value should be -53452',
+    );
     final message2 = SparseEnumMessage.fromBuffer(message.writeToBuffer());
-    expect(message2.sparseEnum, TestSparseEnum.SPARSE_E,
-        reason: 'should resolve back to SPARSE_E');
+    expect(
+      message2.sparseEnum,
+      TestSparseEnum.SPARSE_E,
+      reason: 'should resolve back to SPARSE_E',
+    );
   });
 
   test('testReservedNamesOptional', () {
@@ -742,13 +770,15 @@ void main() {
   });
 
   test('rebuild updates value', () {
-    final value1 = TestAllTypes()
-      ..optionalForeignMessage = (ForeignMessage()..c = 18)
-      ..freeze();
+    final value1 =
+        TestAllTypes()
+          ..optionalForeignMessage = (ForeignMessage()..c = 18)
+          ..freeze();
     final value2 = value1.rebuild((v) {
       v.optionalFloat = 50.1;
-      v.optionalForeignMessage =
-          v.optionalForeignMessage.rebuild((o) => o.c = 10);
+      v.optionalForeignMessage = v.optionalForeignMessage.rebuild(
+        (o) => o.c = 10,
+      );
     });
     expect(value2.isFrozen, true);
     expect(value2.optionalFloat, 50.1);
@@ -761,9 +791,10 @@ void main() {
   });
 
   test('rebuild shares structure', () {
-    final value1 = TestAllTypes()
-      ..optionalForeignMessage = (ForeignMessage()..c = 18)
-      ..freeze();
+    final value1 =
+        TestAllTypes()
+          ..optionalForeignMessage = (ForeignMessage()..c = 18)
+          ..freeze();
     final value2 = value1.rebuild((v) {
       v.optionalFloat = 50.1;
     });
@@ -776,10 +807,14 @@ void main() {
   test('deepCopy', () {
     final value1 = getAllSet();
     final value2 = value1.deepCopy();
-    assertAllFieldsSet(value2);
-    expect(value2, isNot(same(value1)));
-    expect(value2.optionalForeignMessage,
-        isNot(same(value1.optionalForeignMessage)));
+    testCopy(value1, value2);
+  });
+
+  test('clone', () {
+    final value1 = getAllSet();
+    // ignore: deprecated_member_use_from_same_package
+    final value2 = value1.clone();
+    testCopy(value1, value2);
   });
 
   test('deepCopy extensions', () {
@@ -789,105 +824,206 @@ void main() {
     assertAllExtensionsSet(value2);
   });
 
-  test('Named arguments in constructors', () {
-    final value = constructor_args_unittest.TestAllTypes(
-      optionalInt32: 101,
-      optionalInt64: make64(102),
-      optionalUint32: 103,
-      optionalUint64: make64(104),
-      optionalSint32: 105,
-      optionalSint64: make64(106),
-      optionalFixed32: 107,
-      optionalFixed64: make64(108),
-      optionalSfixed32: 109,
-      optionalSfixed64: make64(110),
-      optionalFloat: 111.0,
-      optionalDouble: 112.0,
-      optionalBool: true,
-      optionalString: '115',
-      optionalBytes: '116'.codeUnits,
-      optionalGroup:
-          constructor_args_unittest.TestAllTypes_OptionalGroup(a: 117),
-      optionalNestedMessage:
-          constructor_args_unittest.TestAllTypes_NestedMessage(bb: 118),
-      optionalForeignMessage: constructor_args_unittest.ForeignMessage(c: 119),
-      optionalImportMessage:
-          constructor_args_unittest_import.ImportMessage(d: 120),
-      optionalNestedEnum: constructor_args_unittest.TestAllTypes_NestedEnum.BAZ,
-      optionalForeignEnum: constructor_args_unittest.ForeignEnum.FOREIGN_BAZ,
-      optionalImportEnum:
-          constructor_args_unittest_import.ImportEnum.IMPORT_BAZ,
-      optionalStringPiece: '124',
-      optionalCord: '125',
-      repeatedInt32: [201, 301],
-      repeatedInt64: [make64(202), make64(302)],
-      repeatedUint32: [203, 303],
-      repeatedUint64: [make64(204), make64(304)],
-      repeatedSint32: [205, 305],
-      repeatedSint64: [make64(206), make64(306)],
-      repeatedFixed32: [207, 307],
-      repeatedFixed64: [make64(208), make64(308)],
-      repeatedSfixed32: [209, 309],
-      repeatedSfixed64: [make64(210), make64(310)],
-      repeatedFloat: [211.0, 311.0],
-      repeatedDouble: [212.0, 312.0],
-      repeatedBool: [true, false],
-      repeatedString: ['215', '315'],
-      repeatedBytes: ['216'.codeUnits, '316'.codeUnits],
-      repeatedGroup: [
-        constructor_args_unittest.TestAllTypes_RepeatedGroup(a: 217),
-        constructor_args_unittest.TestAllTypes_RepeatedGroup(a: 317)
-      ],
-      repeatedNestedMessage: [
-        constructor_args_unittest.TestAllTypes_NestedMessage(bb: 218),
-        constructor_args_unittest.TestAllTypes_NestedMessage(bb: 318)
-      ],
-      repeatedForeignMessage: [
-        constructor_args_unittest.ForeignMessage(c: 219),
-        constructor_args_unittest.ForeignMessage(c: 319)
-      ],
-      repeatedImportMessage: [
-        constructor_args_unittest_import.ImportMessage(d: 220),
-        constructor_args_unittest_import.ImportMessage(d: 320)
-      ],
-      repeatedNestedEnum: [
-        constructor_args_unittest.TestAllTypes_NestedEnum.BAR,
-        constructor_args_unittest.TestAllTypes_NestedEnum.BAZ
-      ],
-      repeatedForeignEnum: [
-        constructor_args_unittest.ForeignEnum.FOREIGN_BAR,
-        constructor_args_unittest.ForeignEnum.FOREIGN_BAZ
-      ],
-      repeatedImportEnum: [
-        constructor_args_unittest_import.ImportEnum.IMPORT_BAR,
-        constructor_args_unittest_import.ImportEnum.IMPORT_BAZ
-      ],
-      repeatedStringPiece: ['224', '324'],
-      repeatedCord: ['225', '325'],
-      defaultInt32: 401,
-      defaultInt64: make64(402),
-      defaultUint32: 403,
-      defaultUint64: make64(404),
-      defaultSint32: 405,
-      defaultSint64: make64(406),
-      defaultFixed32: 407,
-      defaultFixed64: make64(408),
-      defaultSfixed32: 409,
-      defaultSfixed64: make64(410),
-      defaultFloat: 411.0,
-      defaultDouble: 412.0,
-      defaultBool: false,
-      defaultString: '415',
-      defaultBytes: '416'.codeUnits,
-      defaultNestedEnum: constructor_args_unittest.TestAllTypes_NestedEnum.FOO,
-      defaultForeignEnum: constructor_args_unittest.ForeignEnum.FOREIGN_FOO,
-      defaultImportEnum: constructor_args_unittest_import.ImportEnum.IMPORT_FOO,
-      defaultStringPiece: '424',
-      defaultCord: '425',
-    );
-
-    // Convert the message with constructor arguments to the message without
-    // constructor arguments, to be able to reuse `assertAllFieldsSet`.
-    assertAllFieldsSet(TestAllTypes.fromBuffer(value.writeToBuffer()));
+  test('clone extensions', () {
+    final value1 = TestAllExtensions();
+    setAllExtensions(value1);
+    // ignore: deprecated_member_use_from_same_package
+    final value2 = value1.clone();
+    assertAllExtensionsSet(value2);
   });
+
+  test('mergeFromMessage', () {
+    final value1 = getAllSet();
+    final value2 = TestAllTypes()..mergeFromMessage(value1);
+    testCopy(value1, value2);
+  });
+
+  test('mergeFromMessage extensions', () {
+    final value1 = TestAllExtensions();
+    setAllExtensions(value1);
+    final value2 = TestAllExtensions()..mergeFromMessage(value1);
+    assertAllExtensionsSet(value2);
+  });
+
+  test('Handling enums defined out of order', () {
+    final message = MessageWithEnums();
+    for (final enum_ in DenseEnum.values) {
+      message.denseEnums.add(enum_);
+    }
+    for (final enum_ in DenseEnumOutOfOrder.values) {
+      message.denseOutOfOrderEnums.add(enum_);
+    }
+    for (final enum_ in SparseEnum.values) {
+      message.sparseEnums.add(enum_);
+    }
+    for (final enum_ in SparseEnumOutOfOrder.values) {
+      message.sparseOutOfOrderEnums.add(enum_);
+    }
+
+    final encoded = message.writeToBuffer();
+    final decoded = MessageWithEnums.fromBuffer(encoded);
+    expect(decoded.denseEnums, DenseEnum.values);
+    expect(decoded.denseOutOfOrderEnums, DenseEnumOutOfOrder.values);
+    expect(decoded.sparseEnums, SparseEnum.values);
+    expect(decoded.sparseOutOfOrderEnums, SparseEnumOutOfOrder.values);
+  });
+}
+
+/// Shared test function to test `clone` and `deepCopy`.
+///
+/// `value2` should be the clone of `value1`, either with `clone` or `deepCopy`.
+void testCopy(TestAllTypes value1, TestAllTypes value2) {
+  assertAllFieldsSet(value2);
+  expect(value2, isNot(same(value1)));
+
+  // Check that updates to value2 does not update value1.
+  value2.optionalInt32 += 1;
+  value2.optionalInt64 += 1;
+  value2.optionalUint32 += 1;
+  value2.optionalUint64 += 1;
+  value2.optionalSint32 += 1;
+  value2.optionalSint64 += 1;
+  value2.optionalFixed32 += 1;
+  value2.optionalFixed64 += 1;
+  value2.optionalSfixed32 += 1;
+  value2.optionalSfixed64 += 1;
+  value2.optionalFloat += 1;
+  value2.optionalDouble += 1;
+  value2.optionalBool = !value2.optionalBool;
+  value2.optionalString = "hi 1";
+
+  // Don't test `bytes` fields: the semantics here depends on the field value:
+  // - If the value is `Uint8List` or a non-growable list, this will throw.
+  // - Otherwise it will update both messages as the library assumes `bytes`
+  //   fields are immutable and can be shared.
+  // value2.optionalBytes.add(123);
+
+  value2.optionalgroup.a += 1;
+  value2.optionalNestedMessage.bb += 1;
+  value2.optionalImportMessage.d += 1;
+  value2.optionalNestedEnum = TestAllTypes_NestedEnum.BAR;
+  value2.optionalForeignEnum = ForeignEnum.FOREIGN_BAR;
+  value2.optionalImportEnum = ImportEnum.IMPORT_BAR;
+  value2.optionalStringPiece = "hi 2";
+  value2.optionalCord = "hi 3";
+  modifyRepeatedFields(value2);
+
+  assertAllFieldsSet(value1);
+}
+
+/// Same as `testCopy`, but tests extension fields.
+///
+/// `value2` should be the clone of `value1`, either with `clone` or `deepCopy`.
+void testCopyExtensions(TestAllExtensions value1, TestAllExtensions value2) {
+  assertAllExtensionsSet(value2);
+  expect(value2, isNot(same(value1)));
+
+  value2.setExtension(
+    Unittest.optionalInt32Extension,
+    value2.getExtension(Unittest.optionalInt32Extension) + 1,
+  );
+  value2.setExtension(
+    Unittest.optionalInt64Extension,
+    value2.getExtension(Unittest.optionalInt64Extension) + 1,
+  );
+  value2.setExtension(
+    Unittest.optionalUint32Extension,
+    value2.getExtension(Unittest.optionalUint32Extension) + 1,
+  );
+  value2.setExtension(
+    Unittest.optionalUint64Extension,
+    value2.getExtension(Unittest.optionalUint64Extension) + 1,
+  );
+  value2.setExtension(
+    Unittest.optionalSint32Extension,
+    value2.getExtension(Unittest.optionalSint32Extension) + 1,
+  );
+  value2.setExtension(
+    Unittest.optionalSint64Extension,
+    value2.getExtension(Unittest.optionalSint64Extension) + 1,
+  );
+  value2.setExtension(
+    Unittest.optionalFixed32Extension,
+    value2.getExtension(Unittest.optionalFixed32Extension) + 1,
+  );
+  value2.setExtension(
+    Unittest.optionalFixed64Extension,
+    value2.getExtension(Unittest.optionalFixed64Extension) + 1,
+  );
+  value2.setExtension(
+    Unittest.optionalFloatExtension,
+    value2.getExtension(Unittest.optionalFloatExtension) + 1,
+  );
+  value2.setExtension(
+    Unittest.optionalDoubleExtension,
+    value2.getExtension(Unittest.optionalDoubleExtension) + 1,
+  );
+  value2.setExtension(
+    Unittest.optionalBoolExtension,
+    !value2.getExtension(Unittest.optionalBoolExtension),
+  );
+  value2.setExtension(Unittest.optionalStringExtension, "hi 1");
+
+  // Same as `testCopy`, don't test `bytes` fields.
+  // value2.getExtension(Unittest.optionalBytesExtension).add(987);
+
+  value2.getExtension(Unittest.optionalgroupExtension).a += 1;
+  value2.getExtension(Unittest.optionalNestedMessageExtension).bb += 1;
+  value2.getExtension(Unittest.optionalForeignMessageExtension).c += 1;
+  value2.getExtension(Unittest.optionalImportMessageExtension).d += 1;
+  value2.setExtension(
+    Unittest.optionalNestedEnumExtension,
+    TestAllTypes_NestedEnum.BAR,
+  );
+  value2.setExtension(
+    Unittest.optionalForeignEnumExtension,
+    ForeignEnum.FOREIGN_BAR,
+  );
+  value2.setExtension(
+    Unittest.optionalImportEnumExtension,
+    ImportEnum.IMPORT_BAR,
+  );
+  value2.setExtension(Unittest.optionalStringPieceExtension, "hi 2");
+  value2.setExtension(Unittest.optionalCordExtension, "hi 3");
+
+  value2.getExtension(Unittest.repeatedInt32Extension).add(123);
+  value2.getExtension(Unittest.repeatedInt64Extension).add(Int64(123));
+  value2.getExtension(Unittest.repeatedUint32Extension).add(123);
+  value2.getExtension(Unittest.repeatedUint64Extension).add(Int64(123));
+  value2.getExtension(Unittest.repeatedSint32Extension).add(123);
+  value2.getExtension(Unittest.repeatedSint64Extension).add(Int64(123));
+  value2.getExtension(Unittest.repeatedFixed32Extension).add(123);
+  value2.getExtension(Unittest.repeatedFixed64Extension).add(Int64(123));
+  value2.getExtension(Unittest.repeatedSfixed32Extension).add(123);
+  value2.getExtension(Unittest.repeatedSfixed64Extension).add(Int64(123));
+  value2.getExtension(Unittest.repeatedFloatExtension).add(123);
+  value2.getExtension(Unittest.repeatedDoubleExtension).add(123);
+  value2.getExtension(Unittest.repeatedDoubleExtension).add(true);
+  value2.getExtension(Unittest.repeatedStringExtension).add("hi 4");
+  value2.getExtension(Unittest.repeatedBytesExtension).add(<int>[1, 2, 3]);
+  value2
+      .getExtension(Unittest.repeatedgroupExtension)
+      .add(RepeatedGroup_extension());
+  value2
+      .getExtension(Unittest.repeatedNestedMessageExtension)
+      .add(TestAllTypes_NestedMessage());
+  value2
+      .getExtension(Unittest.repeatedForeignMessageExtension)
+      .add(ForeignMessage());
+  value2
+      .getExtension(Unittest.repeatedImportMessageExtension)
+      .add(ImportMessage());
+  value2
+      .getExtension(Unittest.repeatedNestedEnumExtension)
+      .add(TestAllTypes_NestedEnum.BAR);
+  value2
+      .getExtension(Unittest.repeatedForeignEnumExtension)
+      .add(ForeignEnum.FOREIGN_BAR);
+  value2
+      .getExtension(Unittest.repeatedImportEnumExtension)
+      .add(ImportEnum.IMPORT_BAR);
+  value2.getExtension(Unittest.repeatedStringPieceExtension).add("hi 5");
+  value2.getExtension(Unittest.repeatedCordExtension).add("hi 6");
+
+  assertAllExtensionsSet(value1);
 }

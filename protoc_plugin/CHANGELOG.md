@@ -1,4 +1,130 @@
-## 22.0.0-dev
+## 25.0.0
+
+Note: this version requires protobuf 5.2.0.
+
+* Handle importing [well-known protos][wkts]. ([#1081])
+
+[wkts]: https://protobuf.dev/reference/protobuf/google.protobuf
+[#1081]: https://github.com/google/protobuf.dart/pull/1081
+
+## 24.0.0
+
+* **Breaking:** Don't generate `createRepeated` methods.
+
+  These methods are not too useful as there isn't much you can do with a
+  `PbList` that you can't do with a `List`.
+
+  To migrate, replace `MyMessage.createRepeated()` with `<MyMessage>[]`.
+
+## 23.0.0
+
+Note: this version requires protobuf 5.0.0.
+
+* Support protobuf editions. ([#1052])
+* Update generated code for protobuf 5.0.0.
+* Update generated `clone` members to take advantage of faster `deepCopy`
+  implementation in protobuf 5.0.0. ([#742])
+* Code size improvements for enum fields. ([#1047])
+
+[#742]: https://github.com/google/protobuf.dart/pull/742
+[#1047]: https://github.com/google/protobuf.dart/pull/1047
+[#1052]: https://github.com/google/protobuf.dart/pull/1052
+
+## 22.5.0
+
+* Generated files are now formatted using the Dart formatter. The code is
+  formatted using the min. SDK for `package:protoc_plugin`; currently `3.7.0`.
+* Minimum SDK dependency bumped from 3.6.0 to 3.7.0. ([#1024])
+
+[#1024]: https://github.com/google/protobuf.dart/pull/1024
+
+## 22.4.0
+
+* Update how we calculate import prefixes ([#1010]); import prefixes are now
+  unique per-library instead of being unique across all generated libraries.
+* Ignore `unused_import` diagnostics for `*.pbjson.dart` files. ([#1013])
+* Revert the change to not generate empty `*.pbenum.dart` files; these can be
+  exported from other enum files. ([#1016])
+* Improve the readablity of generated gRPC client files. ([#1021])
+* Adjust the text of generated file headers ('This is a generated file...').
+  ([#1022])
+
+[#1010]: https://github.com/google/protobuf.dart/issues/1010
+[#1013]: https://github.com/google/protobuf.dart/pull/1013
+[#1016]: https://github.com/google/protobuf.dart/pull/1016
+[#1021]: https://github.com/google/protobuf.dart/pull/1021
+[#1022]: https://github.com/google/protobuf.dart/pull/1022
+
+## 22.3.0
+
+* Update the generated code to improve readability and to better follow common
+  Dart patterns.
+* No longer generate empty enum (`*.pbenum.dart`) files.
+* No longer generate empty server (`*.pbserver.dart`) files.
+* Ignore `implementation_imports` for some generated files.
+
+## 22.2.0
+
+* Bump `protobuf` constraint to `^4.1.0`
+* Read `default_host` and `oauth_scopes` options from gRPC service definitions
+  and write that information to the generated gRPC clients.
+* Adjust the deprecation messages for the message `clone()` and `copyWith()`
+  methods ([#998]).
+* Generate dartdocs for grpc services ([#973]).
+
+  We now parse and generate code cooresponding to the proto options
+  `google.api.default_host` and `google.api.oauth_scopes`:
+
+  ```proto
+  service Firestore {
+    option (google.api.default_host) = "firestore.googleapis.com";
+    option (google.api.oauth_scopes) =
+        "https://www.googleapis.com/auth/cloud-platform,"
+        "https://www.googleapis.com/auth/datastore";
+
+    ...
+  ```
+
+  Will generate as:
+
+  ```dart
+  class FirestoreClient extends $grpc.Client {
+    /// The hostname for this service.
+    static const $core.String defaultHost = 'firestore.googleapis.com';
+
+    /// OAuth scopes needed for the client.
+    static const $core.List<$core.String> oauthScopes = [
+      'https://www.googleapis.com/auth/cloud-platform',
+      'https://www.googleapis.com/auth/datastore',
+    ];
+
+    ...
+  ```
+* Minimum SDK dependency bumped from 3.3.0 to 3.6.0. ([#1001])
+
+[#973]: https://github.com/google/protobuf.dart/issues/973
+[#1001]: https://github.com/google/protobuf.dart/pull/1001
+
+## 22.1.0
+
+* Fix factory argument types for protobuf `Map` fields. ([#975])
+* Fix import order changes when files are passed in different order to `protoc`.
+([#952])
+* Add fromDart() and toDart() methods to convert between core Duration and proto
+  Duration ([#986])
+* Update the GRPC service generator to emit constructors that use super
+  parameters.
+
+[#975]: https://github.com/google/protobuf.dart/issues/975
+[#952]: https://github.com/google/protobuf.dart/issues/952
+[#986]: https://github.com/google/protobuf.dart/issues/986
+[#998]: https://github.com/google/protobuf.dart/issues/998
+
+## 22.0.1
+
+* Bump `protobuf` constraint to `^4.0.0`
+
+## 22.0.0
 
 * Remove `PbEventMixin` mixin. ([#738])
 * Type of repeated fields is now `PbList` (instead of `List`), type of map
@@ -12,6 +138,12 @@
 * `deprecated` options in messages, grpc services and methods, and enum types
   and values are now handled to generate Dart `@deprecated` annotations.
   ([#900], [#908])
+* `protoc_plugin` and generated files now require Dart 3.3.0. (#953)
+* Fix performance issues when handling documentation comments in protobufs.
+  ([#935], [#955])
+* Fix grpc methods with names 'call' and 'request' conflicting with other
+  methods in the generated code and causing compile-time errors. ([#963],
+  [#159])
 
 [#738]: https://github.com/google/protobuf.dart/issues/738
 [#903]: https://github.com/google/protobuf.dart/pull/903
@@ -20,6 +152,11 @@
 [#900]: https://github.com/google/protobuf.dart/issues/900
 [#909]: https://github.com/google/protobuf.dart/pull/909
 [#908]: https://github.com/google/protobuf.dart/pull/908
+[#953]: https://github.com/google/protobuf.dart/pull/953
+[#935]: https://github.com/google/protobuf.dart/pull/935
+[#955]: https://github.com/google/protobuf.dart/pull/955
+[#963]: https://github.com/google/protobuf.dart/issues/963
+[#159]: https://github.com/google/protobuf.dart/issues/159
 
 ## 21.1.2
 

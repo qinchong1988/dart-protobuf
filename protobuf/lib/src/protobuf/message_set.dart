@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of '../../protobuf.dart';
+part of 'internal.dart';
 
 const _messageSetItemsTag = 1;
 const _messageSetItemTypeIdTag = 2;
@@ -48,8 +48,10 @@ abstract class $_MessageSet extends GeneratedMessage {
   }
 
   @override
-  void mergeFromCodedBufferReader(CodedBufferReader input,
-      [ExtensionRegistry extensionRegistry = ExtensionRegistry.EMPTY]) {
+  void mergeFromCodedBufferReader(
+    CodedBufferReader input, [
+    ExtensionRegistry extensionRegistry = ExtensionRegistry.EMPTY,
+  ]) {
     // Parse items. The field for the items looks like:
     //
     //   repeated group Item items = 1;
@@ -115,32 +117,43 @@ abstract class $_MessageSet extends GeneratedMessage {
   }
 
   @override
-  void mergeFromBuffer(List<int> input,
-      [ExtensionRegistry extensionRegistry = ExtensionRegistry.EMPTY]) {
+  void mergeFromBuffer(
+    List<int> input, [
+    ExtensionRegistry extensionRegistry = ExtensionRegistry.EMPTY,
+  ]) {
     mergeFromCodedBufferReader(CodedBufferReader(input), extensionRegistry);
   }
 
   void _parseExtension(
-      int typeId, Uint8List message, ExtensionRegistry extensionRegistry) {
-    final ext =
-        extensionRegistry.getExtension(info_.qualifiedMessageName, typeId);
+    int typeId,
+    Uint8List message,
+    ExtensionRegistry extensionRegistry,
+  ) {
+    final ext = extensionRegistry.getExtension(
+      info_.qualifiedMessageName,
+      typeId,
+    );
     if (ext == null) {
       final messageItem = UnknownFieldSet();
-      messageItem.addField(_messageSetItemTypeIdTag,
-          UnknownFieldSetField()..varints.add(Int64(typeId)));
       messageItem.addField(
-          _messageSetItemMessageTag,
-          UnknownFieldSetField()
-            ..lengthDelimited.add(Uint8List.fromList(message)));
+        _messageSetItemTypeIdTag,
+        UnknownFieldSetField()..varints.add(Int64(typeId)),
+      );
+      messageItem.addField(
+        _messageSetItemMessageTag,
+        UnknownFieldSetField()
+          ..lengthDelimited.add(Uint8List.fromList(message)),
+      );
 
       final itemListField =
           _fieldSet._ensureUnknownFields().getField(_messageSetItemsTag) ??
-              UnknownFieldSetField();
+          UnknownFieldSetField();
       itemListField.addGroup(messageItem);
 
-      _fieldSet
-          ._ensureUnknownFields()
-          .addField(_messageSetItemsTag, itemListField);
+      _fieldSet._ensureUnknownFields().addField(
+        _messageSetItemsTag,
+        itemListField,
+      );
     } else {
       setExtension(ext, ext.subBuilder!()..mergeFromBuffer(message));
     }

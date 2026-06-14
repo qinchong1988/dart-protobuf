@@ -11,8 +11,13 @@ class EnumAlias {
 }
 
 class EnumGenerator extends ProtobufContainer {
+  /// For top-level enums: [FileGenerator]. For nested enums:
+  /// [MessageGenerator].
   @override
   final ProtobufContainer parent;
+
+  @override
+  final FeatureSet features;
 
   @override
   final String classname;
@@ -21,35 +26,48 @@ class EnumGenerator extends ProtobufContainer {
   final String fullName;
 
   final EnumDescriptorProto _descriptor;
+
   final List<EnumValueDescriptorProto> _canonicalValues =
       <EnumValueDescriptorProto>[];
+
   final List<int> _originalCanonicalIndices = <int>[];
+
   final List<EnumAlias> _aliases = <EnumAlias>[];
 
   /// Maps the name of an enum value to the Dart name we will use for it.
   final Map<String, String> dartNames = <String, String>{};
+
   final List<int> _originalAliasIndices = <int>[];
-  List<int>? _fieldPath;
+
   final List<int> _fieldPathSegment;
 
   @override
-  List<int> get fieldPath =>
-      _fieldPath ??= List.from(parent.fieldPath!)..addAll(_fieldPathSegment);
+  late final List<int> fieldPath = [...parent.fieldPath, ..._fieldPathSegment];
 
-  EnumGenerator._(EnumDescriptorProto descriptor, this.parent,
-      Set<String> usedClassNames, int repeatedFieldIndex, int fieldIdTag)
-      : _fieldPathSegment = [fieldIdTag, repeatedFieldIndex],
-        classname = messageOrEnumClassName(descriptor.name, usedClassNames,
-            parent: parent.classname ?? ''),
-        fullName = parent.fullName == ''
-            ? descriptor.name
-            : '${parent.fullName}.${descriptor.name}',
-        _descriptor = descriptor {
+  EnumGenerator._(
+    EnumDescriptorProto descriptor,
+    this.parent,
+    Set<String> usedClassNames,
+    int repeatedFieldIndex,
+    int fieldIdTag,
+  ) : _fieldPathSegment = [fieldIdTag, repeatedFieldIndex],
+      classname = messageOrEnumClassName(
+        descriptor.name,
+        usedClassNames,
+        parent: parent.classname ?? '',
+      ),
+      fullName =
+          parent.fullName == ''
+              ? descriptor.name
+              : '${parent.fullName}.${descriptor.name}',
+      _descriptor = descriptor,
+      features = resolveFeatures(parent.features, descriptor.options.features) {
     final usedNames = {...reservedEnumNames};
     for (var i = 0; i < descriptor.value.length; i++) {
       final value = descriptor.value[i];
-      final canonicalValue =
-          descriptor.value.firstWhere((v) => v.number == value.number);
+      final canonicalValue = descriptor.value.firstWhere(
+        (v) => v.number == value.number,
+      );
       if (value == canonicalValue) {
         _canonicalValues.add(value);
         _originalCanonicalIndices.add(i);
@@ -58,7 +76,10 @@ class EnumGenerator extends ProtobufContainer {
         _originalAliasIndices.add(i);
       }
       dartNames[value.name] = disambiguateName(
-          avoidInitialUnderscore(value.name), usedNames, enumSuffixes());
+        avoidInitialUnderscore(value.name),
+        usedNames,
+        enumSuffixes(),
+      );
     }
   }
 
@@ -66,17 +87,30 @@ class EnumGenerator extends ProtobufContainer {
   static const _nestedFieldTag = 4;
 
   EnumGenerator.topLevel(
-      EnumDescriptorProto descriptor,
-      ProtobufContainer parent,
-      Set<String> usedClassNames,
-      int repeatedFieldIndex)
-      : this._(descriptor, parent, usedClassNames, repeatedFieldIndex,
-            _topLevelFieldTag);
+    EnumDescriptorProto descriptor,
+    ProtobufContainer parent,
+    Set<String> usedClassNames,
+    int repeatedFieldIndex,
+  ) : this._(
+        descriptor,
+        parent,
+        usedClassNames,
+        repeatedFieldIndex,
+        _topLevelFieldTag,
+      );
 
-  EnumGenerator.nested(EnumDescriptorProto descriptor, ProtobufContainer parent,
-      Set<String> usedClassNames, int repeatedFieldIndex)
-      : this._(descriptor, parent, usedClassNames, repeatedFieldIndex,
-            _nestedFieldTag);
+  EnumGenerator.nested(
+    EnumDescriptorProto descriptor,
+    ProtobufContainer parent,
+    Set<String> usedClassNames,
+    int repeatedFieldIndex,
+  ) : this._(
+        descriptor,
+        parent,
+        usedClassNames,
+        repeatedFieldIndex,
+        _nestedFieldTag,
+      );
 
   @override
   String get package => parent.package;
@@ -90,13 +124,14 @@ class EnumGenerator extends ProtobufContainer {
   }
 
   /// Returns a const expression that evaluates to the JSON for this message.
-  /// [usage] represents the .pb.dart file where the expression will be used.
-  String getJsonConstant(FileGenerator usage) {
+  ///
+  /// [context] represents the .pb.dart file where the expression will be used.
+  String getJsonConstant(FileGenerator context) {
     final name = '$classname\$json';
-    if (usage.protoFileUri == fileGen!.protoFileUri) {
+    if (context.protoFileUri == fileGen!.protoFileUri) {
       return name;
     }
-    return '$fileImportPrefix.$name';
+    return '${context.importPrefix(this)}.$name';
   }
 
   static const int _enumValueTag = 2;
@@ -110,91 +145,142 @@ class EnumGenerator extends ProtobufContainer {
       out.println('@$coreImportPrefix.Deprecated(\'This enum is deprecated\')');
     }
     out.addAnnotatedBlock(
-        'class $classname extends $protobufImportPrefix.ProtobufEnum {',
-        '}\n', [
-      NamedLocation(
-          name: classname, fieldPathSegment: fieldPath, start: 'class '.length)
-    ], () {
-      // -----------------------------------------------------------------
-      // Define enum types.
-      for (var i = 0; i < _canonicalValues.length; i++) {
-        final val = _canonicalValues[i];
-        final name = dartNames[val.name]!;
+      'class $classname extends $protobufImportPrefix.ProtobufEnum {',
+      '}\n',
+      [
+        NamedLocation(
+          name: classname,
+          fieldPathSegment: fieldPath,
+          start: 'class '.length,
+        ),
+      ],
+      () {
+        // -----------------------------------------------------------------
+        // Define enum types.
         final omitEnumNames = ConditionalConstDefinition('omit_enum_names');
-        out.addSuffix(
-            omitEnumNames.constFieldName, omitEnumNames.constDefinition);
-        final conditionalValName = omitEnumNames.createTernary(val.name);
-        final fieldPathSegment = List<int>.from(fieldPath)
-          ..addAll([_enumValueTag, _originalCanonicalIndices[i]]);
+        for (var i = 0; i < _canonicalValues.length; i++) {
+          final val = _canonicalValues[i];
+          final name = dartNames[val.name]!;
+          out.addSuffix(
+            omitEnumNames.constFieldName,
+            omitEnumNames.constDefinition,
+          );
+          final conditionalValName = omitEnumNames.createTernary(val.name);
+          final fieldPathSegment = <int>[
+            ...fieldPath,
+            _enumValueTag,
+            _originalCanonicalIndices[i],
+          ];
 
-        final commentBlock = fileGen?.commentBlock(fieldPathSegment);
-        if (commentBlock != null) {
-          out.println(commentBlock);
-        }
+          final commentBlock = fileGen?.commentBlock(fieldPathSegment);
+          if (commentBlock != null) {
+            out.println(commentBlock);
+          }
 
-        if (val.options.deprecated) {
-          out.println(
-              '@$coreImportPrefix.Deprecated(\'This enum value is deprecated\')');
-        }
+          if (val.options.deprecated) {
+            out.println(
+              '@$coreImportPrefix.Deprecated(\'This enum value is deprecated\')',
+            );
+          }
 
-        out.printlnAnnotated(
+          out.printlnAnnotated(
             'static const $classname $name = '
             '$classname._(${val.number}, $conditionalValName);',
             [
               NamedLocation(
-                  name: name,
-                  fieldPathSegment: fieldPathSegment,
-                  start: 'static const $classname '.length)
-            ]);
-      }
-      if (_aliases.isNotEmpty) {
-        out.println();
-        for (var i = 0; i < _aliases.length; i++) {
-          final alias = _aliases[i];
-          final name = dartNames[alias.value.name]!;
-          out.printlnAnnotated(
+                name: name,
+                fieldPathSegment: fieldPathSegment,
+                start: 'static const $classname '.length,
+              ),
+            ],
+          );
+        }
+        if (_aliases.isNotEmpty) {
+          out.println();
+          for (var i = 0; i < _aliases.length; i++) {
+            final alias = _aliases[i];
+            final name = dartNames[alias.value.name]!;
+            out.printlnAnnotated(
               'static const $classname $name ='
               ' ${dartNames[alias.canonicalValue.name]};',
               [
                 NamedLocation(
-                    name: name,
-                    fieldPathSegment: List.from(fieldPath)
-                      ..addAll([_enumValueTag, _originalAliasIndices[i]]),
-                    start: 'static const $classname '.length)
-              ]);
+                  name: name,
+                  fieldPathSegment: List.from(fieldPath)
+                    ..addAll([_enumValueTag, _originalAliasIndices[i]]),
+                  start: 'static const $classname '.length,
+                ),
+              ],
+            );
+          }
         }
-      }
-      out.println();
+        out.println();
 
-      out.println('static const $coreImportPrefix.List<$classname> values ='
-          ' <$classname> [');
-      for (final val in _canonicalValues) {
-        final name = dartNames[val.name];
-        out.println('  $name,');
-      }
-      out.println('];');
-      out.println();
+        out.println(
+          'static const $coreImportPrefix.List<$classname> values ='
+          ' <$classname> [',
+        );
+        for (final val in _canonicalValues) {
+          final name = dartNames[val.name];
+          out.println('  $name,');
+        }
+        out.println('];');
+        out.println();
 
-      out.println(
-          'static final $coreImportPrefix.Map<$coreImportPrefix.int, $classname> _byValue ='
-          ' $protobufImportPrefix.ProtobufEnum.initByValue(values);');
-      out.println('static $classname? valueOf($coreImportPrefix.int value) =>'
-          ' _byValue[value];');
-      out.println();
+        var maxEnumValue = -1;
+        for (final valueDescriptor in _canonicalValues) {
+          if (valueDescriptor.number.isNegative) {
+            maxEnumValue = -1; // don't use list
+            break;
+          }
+          if (valueDescriptor.number > maxEnumValue) {
+            maxEnumValue = valueDescriptor.number;
+          }
+        }
 
-      out.println(
-          'const $classname._($coreImportPrefix.int v, $coreImportPrefix.String n) '
-          ': super(v, n);');
-    });
+        final useList =
+            _canonicalValues.isEmpty ||
+            (maxEnumValue >= 0 &&
+                _canonicalValues.length / (maxEnumValue + 1) >= 0.7);
+
+        if (useList) {
+          out.println(
+            'static final $coreImportPrefix.List<$classname?> _byValue ='
+            ' $protobufImportPrefix.ProtobufEnum.\$_initByValueList(values, $maxEnumValue);',
+          );
+
+          out.println(
+            'static $classname? valueOf($coreImportPrefix.int value) =>'
+            '  value < 0 || value >= _byValue.length ? null : _byValue[value];',
+          );
+        } else {
+          out.println(
+            'static final $coreImportPrefix.Map<$coreImportPrefix.int, $classname> _byValue ='
+            ' $protobufImportPrefix.ProtobufEnum.initByValue(values);',
+          );
+
+          out.println(
+            'static $classname? valueOf($coreImportPrefix.int value) =>'
+            ' _byValue[value];',
+          );
+        }
+
+        out.println();
+
+        out.println('const $classname._(super.value, super.name);');
+      },
+    );
   }
 
-  /// Writes a Dart constant containing the JSON for the EnumProtoDescriptor.
+  /// Writes a Dart constant containing the JSON for the [EnumDescriptorProto].
   void generateConstants(IndentingWriter out) {
     final name = getJsonConstant(fileGen!);
     final json = _descriptor.writeToJsonMap();
 
-    out.println('@$coreImportPrefix.Deprecated'
-        '(\'Use ${toplevelParent!.binaryDescriptorName} instead\')');
+    out.println(
+      '@$coreImportPrefix.Deprecated'
+      '(\'Use ${toplevelParent!.binaryDescriptorName} instead\')',
+    );
     out.print('const $name = ');
     writeJsonConst(out, json);
     out.println(';');

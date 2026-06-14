@@ -5,17 +5,22 @@
 part of '../protoc.dart';
 
 class ProtobufField {
-  static final RegExp _hexLiteralRegex =
-      RegExp(r'^0x[0-9a-f]+$', multiLine: false, caseSensitive: false);
+  static final RegExp _hexLiteralRegex = RegExp(
+    r'^0x[0-9a-f]+$',
+    multiLine: false,
+    caseSensitive: false,
+  );
   static final RegExp _integerLiteralRegex = RegExp(r'^[+-]?[0-9]+$');
   static final RegExp _decimalLiteralRegexA = RegExp(
-      r'^[+-]?([0-9]*)\.[0-9]+(e[+-]?[0-9]+)?$',
-      multiLine: false,
-      caseSensitive: false);
+    r'^[+-]?([0-9]*)\.[0-9]+(e[+-]?[0-9]+)?$',
+    multiLine: false,
+    caseSensitive: false,
+  );
   static final RegExp _decimalLiteralRegexB = RegExp(
-      r'^[+-]?[0-9]+e[+-]?[0-9]+$',
-      multiLine: false,
-      caseSensitive: false);
+    r'^[+-]?[0-9]+e[+-]?[0-9]+$',
+    multiLine: false,
+    caseSensitive: false,
+  );
 
   final FieldDescriptorProto descriptor;
 
@@ -25,20 +30,47 @@ class ProtobufField {
   final String fullName;
   final BaseType baseType;
   final ProtobufContainer parent;
+  final FeatureSet features;
 
   ProtobufField.message(
-      FieldNames names, ProtobufContainer parent, GenerationContext ctx)
-      : this._(names.descriptor, names, parent, ctx);
+    FieldNames names,
+    ProtobufContainer parent,
+    FeatureSet inheritFeatures,
+    GenerationContext ctx,
+  ) : this._(names.descriptor, names, parent, inheritFeatures, ctx);
 
-  ProtobufField.extension(FieldDescriptorProto descriptor,
-      ProtobufContainer parent, GenerationContext ctx)
-      : this._(descriptor, null, parent, ctx);
+  ProtobufField.extension(
+    FieldDescriptorProto descriptor,
+    ProtobufContainer parent,
+    GenerationContext ctx,
+  ) : this._(descriptor, null, parent, parent.features, ctx);
 
-  ProtobufField._(this.descriptor, FieldNames? dartNames, this.parent,
-      GenerationContext ctx)
-      : memberNames = dartNames,
-        fullName = '${parent.fullName}.${descriptor.name}',
-        baseType = BaseType(descriptor, ctx);
+  ProtobufField._(
+    FieldDescriptorProto descriptor,
+    FieldNames? dartNames,
+    ProtobufContainer parent,
+    FeatureSet inheritFeatures,
+    GenerationContext ctx,
+  ) : this._features(
+        descriptor,
+        resolveFeatures(
+          inheritFeatures,
+          _inferLegacyProtoFeatures(descriptor, parent.fileGen!.edition),
+        ),
+        dartNames,
+        parent,
+        ctx,
+      );
+
+  ProtobufField._features(
+    this.descriptor,
+    this.features,
+    FieldNames? dartNames,
+    this.parent,
+    GenerationContext ctx,
+  ) : memberNames = dartNames,
+      fullName = '${parent.fullName}.${descriptor.name}',
+      baseType = BaseType(descriptor, features, ctx);
 
   /// The index of this field in MessageGenerator.fieldList.
   ///
@@ -59,8 +91,9 @@ class ProtobufField {
   /// Whether the field is to be encoded with [deprecated = true] encoding.
   bool get isDeprecated => descriptor.options.deprecated;
 
-  bool get isRequired =>
-      descriptor.label == FieldDescriptorProto_Label.LABEL_REQUIRED;
+  bool get isRequired {
+    return features.fieldPresence == FeatureSet_FieldPresence.LEGACY_REQUIRED;
+  }
 
   bool get isRepeated =>
       descriptor.label == FieldDescriptorProto_Label.LABEL_REPEATED;
@@ -79,20 +112,8 @@ class ProtobufField {
       return false;
     }
 
-    switch (parent.fileGen!.syntax) {
-      case ProtoSyntax.proto3:
-        if (!descriptor.hasOptions()) {
-          return true; // packed by default in proto3
-        } else {
-          return !descriptor.options.hasPacked() || descriptor.options.packed;
-        }
-      case ProtoSyntax.proto2:
-        if (!descriptor.hasOptions()) {
-          return false; // not packed by default in proto3
-        } else {
-          return descriptor.options.packed;
-        }
-    }
+    return features.repeatedFieldEncoding ==
+        FeatureSet_RepeatedFieldEncoding.PACKED;
   }
 
   /// Whether the field has the `overrideGetter` annotation set to true.
@@ -111,7 +132,7 @@ class ProtobufField {
 
   /// Whether this field uses the Int64 from the fixnum package.
   bool get needsFixnumImport =>
-      baseType.unprefixed == '$_fixnumImportPrefix.Int64';
+      baseType.unprefixed == '$fixnumImportPrefix.Int64';
 
   /// Whether this field is a map field definition:
   /// `map<key_type, value_type> map_field = N`.
@@ -140,16 +161,30 @@ class ProtobufField {
     // for example in package:protobuf/src/protobuf/mixins/well_known.dart.
   }
 
-  /// Returns the expression to use for the Dart type.
+  /// Returns the type to use for the Dart field type.
   String getDartType() {
     if (isMapField) {
-      final d = baseType.generator as MessageGenerator;
-      final keyType = d._fieldList[0].baseType.getDartType(parent.fileGen!);
-      final valueType = d._fieldList[1].baseType.getDartType(parent.fileGen!);
+      final keyType = getDartMapKeyType();
+      final valueType = getDartMapValueType();
       return '$protobufImportPrefix.PbMap<$keyType, $valueType>';
     }
     if (isRepeated) return baseType.getRepeatedDartType(parent.fileGen!);
     return baseType.getDartType(parent.fileGen!);
+  }
+
+  /// Only for map fields: returns the type to use for Dart map field key type.
+  String getDartMapKeyType() {
+    assert(isMapField);
+    return (baseType.generator as MessageGenerator).fieldList[0].baseType
+        .getDartType(parent.fileGen!);
+  }
+
+  /// Only for map fields: returns the type to use for Dart map field value
+  /// type.
+  String getDartMapValueType() {
+    assert(isMapField);
+    return (baseType.generator as MessageGenerator).fieldList[1].baseType
+        .getDartType(parent.fileGen!);
   }
 
   /// Returns the tag number of the underlying proto field.
@@ -169,7 +204,9 @@ class ProtobufField {
   }
 
   static String _formatArguments(
-      List<String> positionals, Map<String, String?> named) {
+    List<String> positionals,
+    Map<String, String?> named,
+  ) {
     final args = positionals.toList();
     named.forEach((key, value) {
       if (value != null) {
@@ -186,7 +223,9 @@ class ProtobufField {
 
     final omitFieldNames = ConditionalConstDefinition('omit_field_names');
     out.addSuffix(
-        omitFieldNames.constFieldName, omitFieldNames.constDefinition);
+      omitFieldNames.constFieldName,
+      omitFieldNames.constDefinition,
+    );
     final quotedName = omitFieldNames.createTernary(descriptor.jsonName);
 
     final type = baseType.getDartType(parent.fileGen!);
@@ -200,8 +239,8 @@ class ProtobufField {
 
     if (isMapField) {
       final generator = baseType.generator as MessageGenerator;
-      final key = generator._fieldList[0];
-      final value = generator._fieldList[1];
+      final key = generator.fieldList[0];
+      final value = generator.fieldList[1];
 
       // Key type is an integer type or string. No need to specify the default
       // value as the library knows the defaults for integer and string fields.
@@ -232,6 +271,16 @@ class ProtobufField {
     } else if (isRepeated) {
       if (typeConstant == '$protobufImportPrefix.PbFieldType.PS') {
         invocation = 'pPS';
+      } else if (typeConstant == '$protobufImportPrefix.PbFieldType.PE') {
+        invocation = 'pPE<$type>';
+        named['enumValues'] = '$type.values';
+        final makeDefault = generateDefaultFunction(omitIfFirstEnumValue: true);
+        if (makeDefault != null) {
+          named['defaultEnumValue'] = makeDefault;
+        }
+      } else if (typeConstant == '$protobufImportPrefix.PbFieldType.PM') {
+        invocation = 'pPM<$type>';
+        named['subBuilder'] = '$type.create';
       } else {
         args.add(typeConstant);
         if (baseType.isMessage || baseType.isGroup || baseType.isEnum) {
@@ -250,14 +299,27 @@ class ProtobufField {
       }
     } else {
       // Singular field.
-      final makeDefault = generateDefaultFunction();
+      final makeDefault = generateDefaultFunction(omitIfFirstEnumValue: true);
 
       if (baseType.isEnum) {
-        args.add(typeConstant);
-        named['defaultOrMaker'] = makeDefault;
-        named['valueOf'] = '$type.valueOf';
+        invocation = 'aE<$type>';
+        if (typeConstant != '$protobufImportPrefix.PbFieldType.OE') {
+          named['fieldType'] = typeConstant;
+        }
+        if (makeDefault != null) named['defaultOrMaker'] = makeDefault;
         named['enumValues'] = '$type.values';
-        invocation = 'e<$type>';
+      } else if (type == '$coreImportPrefix.int') {
+        invocation = 'aI';
+        if (typeConstant != '$protobufImportPrefix.PbFieldType.O3') {
+          named['fieldType'] = typeConstant;
+        }
+        if (makeDefault != null) named['defaultOrMaker'] = makeDefault;
+      } else if (type == '$coreImportPrefix.double') {
+        invocation = 'aD';
+        if (typeConstant != '$protobufImportPrefix.PbFieldType.OD') {
+          named['fieldType'] = typeConstant;
+        }
+        if (makeDefault != null) named['defaultOrMaker'] = makeDefault;
       } else if (makeDefault == null) {
         switch (type) {
           case '$coreImportPrefix.String':
@@ -284,8 +346,8 @@ class ProtobufField {
             break;
         }
       } else {
-        if (makeDefault == '$_fixnumImportPrefix.Int64.ZERO' &&
-            type == '$_fixnumImportPrefix.Int64' &&
+        if (makeDefault == '$fixnumImportPrefix.Int64.ZERO' &&
+            type == '$fixnumImportPrefix.Int64' &&
             typeConstant == '$protobufImportPrefix.PbFieldType.O6') {
           invocation = 'aInt64';
         } else {
@@ -330,8 +392,7 @@ class ProtobufField {
   }
 
   /// Returns a function expression that returns the field's default value.
-  String? generateDefaultFunction() {
-    assert(!isRepeated);
+  String? generateDefaultFunction({bool omitIfFirstEnumValue = false}) {
     switch (descriptor.type) {
       case FieldDescriptorProto_Type.TYPE_BOOL:
         return _getDefaultAsBoolExpr(null);
@@ -370,7 +431,7 @@ class ProtobufField {
       case FieldDescriptorProto_Type.TYPE_SFIXED64:
         var value = '0';
         if (descriptor.hasDefaultValue()) value = descriptor.defaultValue;
-        if (value == '0') return '$_fixnumImportPrefix.Int64.ZERO';
+        if (value == '0') return '$fixnumImportPrefix.Int64.ZERO';
         return "$protobufImportPrefix.parseLongInt('$value')";
       case FieldDescriptorProto_Type.TYPE_STRING:
         return _getDefaultAsStringExpr(null);
@@ -392,6 +453,7 @@ class ProtobufField {
             descriptor.defaultValue.isNotEmpty) {
           return '$className.${descriptor.defaultValue}';
         } else if (gen._canonicalValues.isNotEmpty) {
+          if (omitIfFirstEnumValue) return null;
           return '$className.${gen.dartNames[gen._canonicalValues[0].name]}';
         }
         return null;
@@ -425,11 +487,13 @@ class ProtobufField {
   bool _hasBooleanOption(Extension extension) =>
       descriptor.options.getExtension(extension) as bool? ?? false;
 
-  String get _invalidDefaultValue => 'dart-protoc-plugin:'
+  String get _invalidDefaultValue =>
+      'dart-protoc-plugin:'
       ' invalid default value (${descriptor.defaultValue})'
       ' found in field $fullName';
 
-  String _typeNotImplemented(String methodName) => 'dart-protoc-plugin:'
+  String _typeNotImplemented(String methodName) =>
+      'dart-protoc-plugin:'
       ' $methodName not implemented for type (${descriptor.type})'
       ' found in field $fullName';
 
@@ -437,6 +501,33 @@ class ProtobufField {
 
   static String _unCamelCase(String name) {
     return name.replaceAllMapped(
-        _upperCase, (match) => '_${match.group(0)!.toLowerCase()}');
+      _upperCase,
+      (match) => '_${match.group(0)!.toLowerCase()}',
+    );
   }
+}
+
+FeatureSet _inferLegacyProtoFeatures(
+  FieldDescriptorProto descriptor,
+  Edition edition,
+) {
+  if (edition.value >= Edition.EDITION_2023.value) {
+    return descriptor.options.features;
+  }
+  final features = FeatureSet();
+  if (descriptor.label == FieldDescriptorProto_Label.LABEL_REQUIRED) {
+    features.fieldPresence = FeatureSet_FieldPresence.LEGACY_REQUIRED;
+  }
+  if (descriptor.type == FieldDescriptorProto_Type.TYPE_GROUP) {
+    features.messageEncoding = FeatureSet_MessageEncoding.DELIMITED;
+  }
+  if (descriptor.options.packed) {
+    features.repeatedFieldEncoding = FeatureSet_RepeatedFieldEncoding.PACKED;
+  }
+  if (edition.value == Edition.EDITION_PROTO3.value &&
+      descriptor.options.hasPacked() &&
+      !descriptor.options.packed) {
+    features.repeatedFieldEncoding = FeatureSet_RepeatedFieldEncoding.EXPANDED;
+  }
+  return features;
 }

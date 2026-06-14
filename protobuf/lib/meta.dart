@@ -5,7 +5,7 @@
 /// Provides metadata about GeneratedMessage and ProtobufEnum to
 /// dart-protoc-plugin. (Experimental API; subject to change.)
 /// @nodoc
-library protobuf.meta;
+library;
 
 // ignore_for_file: constant_identifier_names
 
@@ -90,5 +90,5 @@ const ProtobufEnum_reservedNames = <String>[
   'hashCode',
   'noSuchMethod',
   'runtimeType',
-  'toString'
+  'toString',
 ];

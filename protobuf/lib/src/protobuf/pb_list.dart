@@ -2,12 +2,22 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of '../../protobuf.dart';
+import 'dart:collection' show ListBase;
+import 'dart:math' as math;
 
-/// Type of a function that checks items added to a `PbList`.
-///
-/// Throws [ArgumentError] or [RangeError] when the item is not valid.
-typedef CheckFunc<E> = void Function(E? x);
+import 'internal.dart';
+import 'utils.dart';
+
+@pragma('dart2js:tryInline')
+@pragma('vm:prefer-inline')
+@pragma('wasm:prefer-inline')
+PbList<E> newPbList<E>({CheckFunc<E>? check}) => PbList._(check: check);
+
+@pragma('dart2js:tryInline')
+@pragma('vm:prefer-inline')
+@pragma('wasm:prefer-inline')
+PbList<E> newUnmodifiablePbList<E>({CheckFunc<E>? check}) =>
+    PbList._unmodifiable();
 
 /// A [ListBase] implementation used for protobuf `repeated` fields.
 class PbList<E> extends ListBase<E> {
@@ -25,30 +35,33 @@ class PbList<E> extends ListBase<E> {
   /// We can't use `const []` as it makes the `_wrappedList` field polymorphic.
   static final _emptyList = <Never>[];
 
-  final CheckFunc<E> _check;
+  final CheckFunc<E>? _check;
 
   bool _isReadOnly = false;
 
   bool get isFrozen => _isReadOnly;
 
-  PbList({CheckFunc<E> check = _checkNotNull})
-      : _wrappedList = <E>[],
-        _check = check;
+  PbList._({CheckFunc<E>? check}) : _wrappedList = <E>[], _check = check;
 
-  PbList.unmodifiable()
-      : _wrappedList = _emptyList,
-        _check = _checkNotNull,
-        _isReadOnly = true;
-
-  PbList.from(List<E> from)
-      : _wrappedList = List<E>.from(from),
-        _check = _checkNotNull;
+  PbList._unmodifiable()
+    : _wrappedList = _emptyList,
+      _check = null,
+      _isReadOnly = true;
 
   @override
   @pragma('dart2js:never-inline')
   void add(E element) {
     _checkModifiable('add');
-    _check(element);
+    if (_check != null) {
+      _check(element);
+    }
+    _wrappedList.add(element);
+  }
+
+  @pragma('dart2js:tryInline')
+  @pragma('vm:prefer-inline')
+  @pragma('wasm:prefer-inline')
+  void _addUnchecked(E element) {
     _wrappedList.add(element);
   }
 
@@ -56,8 +69,14 @@ class PbList<E> extends ListBase<E> {
   @pragma('dart2js:never-inline')
   void addAll(Iterable<E> iterable) {
     _checkModifiable('addAll');
-    iterable.forEach(_check);
-    _wrappedList.addAll(iterable);
+    if (_check != null) {
+      for (final e in iterable) {
+        _check(e);
+        _addUnchecked(e);
+      }
+    } else {
+      _wrappedList.addAll(iterable);
+    }
   }
 
   @override
@@ -85,22 +104,42 @@ class PbList<E> extends ListBase<E> {
   @override
   void insert(int index, E element) {
     _checkModifiable('insert');
-    _check(element);
+    if (_check != null) {
+      _check(element);
+    }
     _wrappedList.insert(index, element);
   }
 
   @override
   void insertAll(int index, Iterable<E> iterable) {
     _checkModifiable('insertAll');
-    iterable.forEach(_check);
-    _wrappedList.insertAll(index, iterable);
+    if (_check != null) {
+      _wrappedList.insertAll(
+        index,
+        iterable.map((E e) {
+          _check(e);
+          return e;
+        }),
+      );
+    } else {
+      _wrappedList.insertAll(index, iterable);
+    }
   }
 
   @override
   void setAll(int index, Iterable<E> iterable) {
     _checkModifiable('setAll');
-    iterable.forEach(_check);
-    _wrappedList.setAll(index, iterable);
+    if (_check != null) {
+      _wrappedList.setAll(
+        index,
+        iterable.map((E e) {
+          _check(e);
+          return e;
+        }),
+      );
+    } else {
+      _wrappedList.setAll(index, iterable);
+    }
   }
 
   @override
@@ -136,10 +175,19 @@ class PbList<E> extends ListBase<E> {
   @override
   void setRange(int start, int end, Iterable<E> iterable, [int skipCount = 0]) {
     _checkModifiable('setRange');
-    // NOTE: In case `take()` returns less than `end - start` elements, the
-    // _wrappedList will fail with a `StateError`.
-    iterable.skip(skipCount).take(end - start).forEach(_check);
-    _wrappedList.setRange(start, end, iterable, skipCount);
+    if (_check != null) {
+      _wrappedList.setRange(
+        start,
+        end,
+        iterable.skip(skipCount).map((E e) {
+          _check(e);
+          return e;
+        }),
+        0,
+      );
+    } else {
+      _wrappedList.setRange(start, end, iterable, skipCount);
+    }
   }
 
   @override
@@ -151,16 +199,27 @@ class PbList<E> extends ListBase<E> {
   @override
   void fillRange(int start, int end, [E? fill]) {
     _checkModifiable('fillRange');
-    _check(fill);
+    if (_check != null) {
+      _check(fill);
+    }
     _wrappedList.fillRange(start, end, fill);
   }
 
   @override
   void replaceRange(int start, int end, Iterable<E> newContents) {
     _checkModifiable('replaceRange');
-    final values = newContents.toList();
-    newContents.forEach(_check);
-    _wrappedList.replaceRange(start, end, values);
+    if (_check != null) {
+      _wrappedList.replaceRange(
+        start,
+        end,
+        newContents.map((E e) {
+          _check(e);
+          return e;
+        }),
+      );
+    } else {
+      _wrappedList.replaceRange(start, end, newContents);
+    }
   }
 
   @override
@@ -191,16 +250,18 @@ class PbList<E> extends ListBase<E> {
   @override
   void operator []=(int index, E value) {
     _checkModifiable('set element');
-    _check(value);
+    if (_check != null) {
+      _check(value);
+    }
     _wrappedList[index] = value;
   }
 
   @override
   bool operator ==(Object other) =>
-      other is PbList && _areListsEqual(other, this);
+      other is PbList && areListsEqual(other, this);
 
   @override
-  int get hashCode => _HashUtils._hashObjects(_wrappedList);
+  int get hashCode => HashUtils.hashObjects(_wrappedList);
 
   void freeze() {
     if (_isReadOnly) {
@@ -227,4 +288,37 @@ class PbList<E> extends ListBase<E> {
   static Never _readOnlyError(String methodName) {
     throw UnsupportedError("'$methodName' on a read-only list");
   }
+
+  PbList<E> _deepCopy() {
+    final newList = PbList<E>._(check: _check);
+    final wrappedList = _wrappedList;
+    final newWrappedList = newList._wrappedList;
+    if (wrappedList.isNotEmpty) {
+      if (wrappedList[0] is GeneratedMessage) {
+        for (final message in wrappedList) {
+          newWrappedList.add((message as GeneratedMessage).deepCopy() as E);
+        }
+      } else {
+        newWrappedList.addAll(wrappedList);
+      }
+    }
+    return newList;
+  }
+}
+
+extension PbListInternalExtension<E> on PbList<E> {
+  @pragma('dart2js:tryInline')
+  @pragma('vm:prefer-inline')
+  @pragma('wasm:prefer-inline')
+  void checkModifiable(String methodName) => _checkModifiable(methodName);
+
+  @pragma('dart2js:tryInline')
+  @pragma('vm:prefer-inline')
+  @pragma('wasm:prefer-inline')
+  void addUnchecked(E element) => _addUnchecked(element);
+
+  @pragma('dart2js:tryInline')
+  @pragma('vm:prefer-inline')
+  @pragma('wasm:prefer-inline')
+  PbList<E> deepCopy() => _deepCopy();
 }

@@ -4,7 +4,7 @@
 
 // ignore_for_file: constant_identifier_names
 
-part of '../../protobuf.dart';
+part of 'internal.dart';
 
 /// Writer used for converting [GeneratedMessage]s into binary
 /// representation.
@@ -48,8 +48,8 @@ class CodedBufferWriter {
   /// more efficiently.
   ByteData? _outputChunkAsByteData;
 
-  /// Array of pairs <Uint8List chunk, int bytesInChunk> - chunks are
-  /// pushed into this array once they are full.
+  /// Array of pairs `<Uint8List chunk, int bytesInChunk>` - chunks are pushed
+  /// into this array once they are full.
   final List<dynamic> _outputChunks = <dynamic>[];
 
   /// Total amount of bytes used in all chunks.
@@ -64,11 +64,11 @@ class CodedBufferWriter {
     _commitChunk(true);
   }
 
-  void writeField(int fieldNumber, int fieldType, Object? fieldValue) {
-    final valueType = PbFieldType._baseType(fieldType);
+  void writeField(int fieldNumber, int fieldType, dynamic fieldValue) {
+    final valueType = PbFieldType.baseType(fieldType);
 
-    if ((fieldType & PbFieldType._PACKED_BIT) != 0) {
-      final list = fieldValue as List;
+    if ((fieldType & PbFieldType.PACKED_BIT) != 0) {
+      final List list = fieldValue;
       if (list.isNotEmpty) {
         _writeTag(fieldNumber, WIRETYPE_LENGTH_DELIMITED);
         final mark = _startLengthDelimited();
@@ -80,18 +80,21 @@ class CodedBufferWriter {
       return;
     }
 
-    if ((fieldType & PbFieldType._MAP_BIT) != 0) {
-      final map = fieldValue as PbMap;
+    if ((fieldType & PbFieldType.MAP_BIT) != 0) {
+      final PbMap map = fieldValue;
       final keyWireFormat = _wireTypes[_valueTypeIndex(map.keyFieldType)];
       final valueWireFormat = _wireTypes[_valueTypeIndex(map.valueFieldType)];
 
       map.forEach((key, value) {
         _writeTag(fieldNumber, WIRETYPE_LENGTH_DELIMITED);
         final mark = _startLengthDelimited();
+        _writeValue(mapKeyFieldNumber, map.keyFieldType, key, keyWireFormat);
         _writeValue(
-            PbMap._keyFieldNumber, map.keyFieldType, key, keyWireFormat);
-        _writeValue(PbMap._valueFieldNumber, map.valueFieldType, value,
-            valueWireFormat);
+          mapValueFieldNumber,
+          map.valueFieldType,
+          value,
+          valueWireFormat,
+        );
         _endLengthDelimited(mark);
       });
       return;
@@ -99,8 +102,8 @@ class CodedBufferWriter {
 
     final wireFormat = _wireTypes[_valueTypeIndex(valueType)];
 
-    if ((fieldType & PbFieldType._REPEATED_BIT) != 0) {
-      final list = fieldValue as List;
+    if ((fieldType & PbFieldType.REPEATED_BIT) != 0) {
+      final List list = fieldValue;
       for (var i = 0; i < list.length; i++) {
         _writeValue(fieldNumber, valueType, list[i], wireFormat);
       }
@@ -153,7 +156,11 @@ class CodedBufferWriter {
             final bytesToCopyFromChunk =
                 leftInChunk > bytesToCopy ? bytesToCopy : leftInChunk;
             buffer.setRange(
-                outPos, outPos + bytesToCopyFromChunk, chunk, chunkPos);
+              outPos,
+              outPos + bytesToCopyFromChunk,
+              chunk,
+              chunkPos,
+            );
             chunkPos += bytesToCopyFromChunk;
             outPos += bytesToCopyFromChunk;
             bytesToCopy -= bytesToCopyFromChunk;
@@ -325,8 +332,11 @@ class CodedBufferWriter {
   void _writeInt32(int value) {
     const sizeInBytes = 4;
     _ensureBytes(sizeInBytes);
-    _outputChunkAsByteData!
-        .setInt32(_bytesInChunk, value & 0xFFFFFFFF, Endian.little);
+    _outputChunkAsByteData!.setInt32(
+      _bytesInChunk,
+      value & 0xFFFFFFFF,
+      Endian.little,
+    );
     _bytesInChunk += sizeInBytes;
     _bytesTotal += sizeInBytes;
   }
@@ -338,10 +348,9 @@ class CodedBufferWriter {
 
   void _writeValueAs(int valueType, dynamic value) {
     switch (valueType) {
-      case PbFieldType._BOOL_BIT:
+      case PbFieldType.BOOL_BIT:
         _writeVarint32(value ? 1 : 0);
-        break;
-      case PbFieldType._BYTES_BIT:
+      case PbFieldType.BYTES_BIT:
         final List<int> bytes = value;
         if (bytes is Uint8List) {
           _writeBytesNoTag(bytes);
@@ -350,26 +359,21 @@ class CodedBufferWriter {
         } else {
           _writeBytesNoTag(Uint8List.fromList(bytes));
         }
-        break;
-      case PbFieldType._STRING_BIT:
+      case PbFieldType.STRING_BIT:
         final String string = value;
         if (string.isEmpty) {
           _writeEmptyBytes();
         } else {
           _writeBytesNoTag(const Utf8Encoder().convert(string));
         }
-        break;
-      case PbFieldType._DOUBLE_BIT:
+      case PbFieldType.DOUBLE_BIT:
         _writeDouble(value);
-        break;
-      case PbFieldType._FLOAT_BIT:
+      case PbFieldType.FLOAT_BIT:
         _writeFloat(value);
-        break;
-      case PbFieldType._ENUM_BIT:
+      case PbFieldType.ENUM_BIT:
         final ProtobufEnum enum_ = value;
         _writeVarint32(enum_.value & 0xffffffff);
-        break;
-      case PbFieldType._GROUP_BIT:
+      case PbFieldType.GROUP_BIT:
         // `value` is `UnknownFieldSet` or `GeneratedMessage`. Test for
         // `UnknownFieldSet` as it doesn't have subtypes, so the type test will
         // be fast.
@@ -383,43 +387,31 @@ class CodedBufferWriter {
           final GeneratedMessage message = value;
           message.writeToCodedBufferWriter(this);
         }
-        break;
-      case PbFieldType._INT32_BIT:
+      case PbFieldType.INT32_BIT:
         _writeVarint64(Int64(value));
-        break;
-      case PbFieldType._INT64_BIT:
+      case PbFieldType.INT64_BIT:
         _writeVarint64(value);
-        break;
-      case PbFieldType._SINT32_BIT:
+      case PbFieldType.SINT32_BIT:
         _writeVarint32(_encodeZigZag32(value));
-        break;
-      case PbFieldType._SINT64_BIT:
+      case PbFieldType.SINT64_BIT:
         _writeVarint64(_encodeZigZag64(value));
-        break;
-      case PbFieldType._UINT32_BIT:
+      case PbFieldType.UINT32_BIT:
         _writeVarint32(value);
-        break;
-      case PbFieldType._UINT64_BIT:
+      case PbFieldType.UINT64_BIT:
         _writeVarint64(value);
-        break;
-      case PbFieldType._FIXED32_BIT:
+      case PbFieldType.FIXED32_BIT:
         _writeInt32(value);
-        break;
-      case PbFieldType._FIXED64_BIT:
+      case PbFieldType.FIXED64_BIT:
         _writeInt64(value);
-        break;
-      case PbFieldType._SFIXED32_BIT:
+      case PbFieldType.SFIXED32_BIT:
         _writeInt32(value);
-        break;
-      case PbFieldType._SFIXED64_BIT:
+      case PbFieldType.SFIXED64_BIT:
         _writeInt64(value);
-        break;
-      case PbFieldType._MESSAGE_BIT:
+      case PbFieldType.MESSAGE_BIT:
         final mark = _startLengthDelimited();
         final GeneratedMessage msg = value;
         msg.writeToCodedBufferWriter(this);
         _endLengthDelimited(mark);
-        break;
     }
   }
 
@@ -437,10 +429,14 @@ class CodedBufferWriter {
   }
 
   void _writeValue(
-      int fieldNumber, int valueType, dynamic value, int wireFormat) {
+    int fieldNumber,
+    int valueType,
+    dynamic value,
+    int wireFormat,
+  ) {
     _writeTag(fieldNumber, wireFormat);
     _writeValueAs(valueType, value);
-    if (valueType == PbFieldType._GROUP_BIT) {
+    if (valueType == PbFieldType.GROUP_BIT) {
       _writeTag(fieldNumber, WIRETYPE_END_GROUP);
     }
   }
@@ -488,25 +484,26 @@ class CodedBufferWriter {
   static const _MESSAGE_BIT_INDEX = 20;
 
   /// Mapping from value types to wire-types indexed by _valueTypeIndex(...).
-  static final Uint8List _wireTypes = Uint8List(32)
-    ..[_BOOL_BIT_INDEX] = WIRETYPE_VARINT
-    ..[_BYTES_BIT_INDEX] = WIRETYPE_LENGTH_DELIMITED
-    ..[_STRING_BIT_INDEX] = WIRETYPE_LENGTH_DELIMITED
-    ..[_DOUBLE_BIT_INDEX] = WIRETYPE_FIXED64
-    ..[_FLOAT_BIT_INDEX] = WIRETYPE_FIXED32
-    ..[_ENUM_BIT_INDEX] = WIRETYPE_VARINT
-    ..[_GROUP_BIT_INDEX] = WIRETYPE_START_GROUP
-    ..[_INT32_BIT_INDEX] = WIRETYPE_VARINT
-    ..[_INT64_BIT_INDEX] = WIRETYPE_VARINT
-    ..[_SINT32_BIT_INDEX] = WIRETYPE_VARINT
-    ..[_SINT64_BIT_INDEX] = WIRETYPE_VARINT
-    ..[_UINT32_BIT_INDEX] = WIRETYPE_VARINT
-    ..[_UINT64_BIT_INDEX] = WIRETYPE_VARINT
-    ..[_FIXED32_BIT_INDEX] = WIRETYPE_FIXED32
-    ..[_FIXED64_BIT_INDEX] = WIRETYPE_FIXED64
-    ..[_SFIXED32_BIT_INDEX] = WIRETYPE_FIXED32
-    ..[_SFIXED64_BIT_INDEX] = WIRETYPE_FIXED64
-    ..[_MESSAGE_BIT_INDEX] = WIRETYPE_LENGTH_DELIMITED;
+  static final Uint8List _wireTypes =
+      Uint8List(32)
+        ..[_BOOL_BIT_INDEX] = WIRETYPE_VARINT
+        ..[_BYTES_BIT_INDEX] = WIRETYPE_LENGTH_DELIMITED
+        ..[_STRING_BIT_INDEX] = WIRETYPE_LENGTH_DELIMITED
+        ..[_DOUBLE_BIT_INDEX] = WIRETYPE_FIXED64
+        ..[_FLOAT_BIT_INDEX] = WIRETYPE_FIXED32
+        ..[_ENUM_BIT_INDEX] = WIRETYPE_VARINT
+        ..[_GROUP_BIT_INDEX] = WIRETYPE_START_GROUP
+        ..[_INT32_BIT_INDEX] = WIRETYPE_VARINT
+        ..[_INT64_BIT_INDEX] = WIRETYPE_VARINT
+        ..[_SINT32_BIT_INDEX] = WIRETYPE_VARINT
+        ..[_SINT64_BIT_INDEX] = WIRETYPE_VARINT
+        ..[_UINT32_BIT_INDEX] = WIRETYPE_VARINT
+        ..[_UINT64_BIT_INDEX] = WIRETYPE_VARINT
+        ..[_FIXED32_BIT_INDEX] = WIRETYPE_FIXED32
+        ..[_FIXED64_BIT_INDEX] = WIRETYPE_FIXED64
+        ..[_SFIXED32_BIT_INDEX] = WIRETYPE_FIXED32
+        ..[_SFIXED64_BIT_INDEX] = WIRETYPE_FIXED64
+        ..[_MESSAGE_BIT_INDEX] = WIRETYPE_LENGTH_DELIMITED;
 }
 
 int _encodeZigZag32(int value) => (value << 1) ^ (value >> 31);
